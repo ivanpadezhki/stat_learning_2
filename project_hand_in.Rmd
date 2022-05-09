@@ -1,0 +1,90 @@
+---
+title: "Final Project For Statistical Learning II"
+author: "Ivan Padezhki"
+date: "April 20, 2022"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax
+for authoring HTML, PDF, and MS Word documents. For more details on
+using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that
+includes both content as well as the output of any embedded R code
+chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to
+prevent printing of the R code that generated the plot.
+
+# 1. Input of data
+https://www.kaggle.com/datasets/gsutters/the-human-freedom-index?resource=download&select=hfi_cc_2021.csv
+
+```{r}
+data_2021 <- read.csv("data/hfi_cc_2021.csv")
+
+names(data_2021)
+hist(data_2021$hf_score)
+
+```
+How did we obtain the data \# 2. Data Cleaning and Filtering organize
+and tidy the data
+
+```{r}
+# select only personal freedom variables
+data_pf <- data_2021[1:69]
+
+```
+
+## 2.1. Remove not needed stuff
+
+## 2.1. Identifying Missings
+
+End up with a data in a standardized format across all data
+
+# 3. Data Exploration
+
+figure out what relevant questions there are in the data Inspect data
+and its features what data types are there (numerical, categorical,
+ordinal) - they require different treatments
+
+## 3.1. Descriptive statistics
+
+visualizations: identify patterns and trends in the data
+
+# 4. Model data
+
+Use regression and predictions for forecasting future values Or use
+classification to identify groups
+
+Reduce dumensionality of the data set - not all our values are
+essentials to predicting the model
+
+Select relevant features that contribute to the prediction of results or
+apply shrinkage regressions
+
+# 5. Interpret data
+
+How do we present our analysis: basically answer the questions we set in
+the beginning using our results - technical details are necessary but
+make them accessible - tell a story
