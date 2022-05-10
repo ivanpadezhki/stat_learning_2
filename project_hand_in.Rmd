@@ -7,7 +7,8 @@ editor_options:
   markdown: 
     wrap: 72
 ---
-
+### Git key
+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
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -43,7 +44,7 @@ https://www.kaggle.com/datasets/gsutters/the-human-freedom-index?resource=downlo
 ```{r}
 data_2021 <- read.csv("data/hfi_cc_2021.csv")
 
-names(data_2021)
+names(data_2021)[1:10]
 hist(data_2021$hf_score)
 
 ```
@@ -53,7 +54,10 @@ and tidy the data
 ```{r}
 # select only personal freedom variables
 data_pf <- data_2021[1:69]
+```
 
+```{r}
+data_pf[1]
 ```
 
 ## 2.1. Remove not needed stuff
