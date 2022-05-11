@@ -7,8 +7,11 @@ editor_options:
   markdown: 
     wrap: 72
 ---
+
 ### Git key
+
 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
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -38,8 +41,15 @@ plot(pressure)
 Note that the `echo = FALSE` parameter was added to the code chunk to
 prevent printing of the R code that generated the plot.
 
+# Libraries
+```{r}
+library(tidyverse)
+library(corrplot)
+```
+
 # 1. Input of data
-https://www.kaggle.com/datasets/gsutters/the-human-freedom-index?resource=download&select=hfi_cc_2021.csv
+
+<https://www.kaggle.com/datasets/gsutters/the-human-freedom-index?resource=download&select=hfi_cc_2021.csv>
 
 ```{r}
 data_2021 <- read.csv("data/hfi_cc_2021.csv")
@@ -48,6 +58,7 @@ names(data_2021)[1:10]
 hist(data_2021$hf_score)
 
 ```
+
 How did we obtain the data \# 2. Data Cleaning and Filtering organize
 and tidy the data
 
@@ -57,11 +68,61 @@ data_pf <- data_2021[1:69]
 ```
 
 ```{r}
-data_pf[1]
+summary(data_pf)
 ```
 
-## 2.1. Remove not needed stuff
+```{r}
+describe(data_pf[1:10])
+```
 
+### take only summary variables 
+```{r}
+#data_pf_global <- select(data_pf, "year", "countries", "ISO", "region",  "hf_score", #"hf_rank", "hf_quartile", "pf_rol", "pf_ss", "pf_movement", "pf_religion", #"pf_assembly", "pf_expression", "pf_identity", "pf_womens", "pf_score", "pf_rank")
+data_pf_global <- select(data_pf, "year", "countries", "hf_score", "pf_rol", "pf_ss", "pf_movement", "pf_religion", "pf_assembly", "pf_expression", "pf_identity", "pf_womens", "pf_score")
+describe(data_pf_global)
+```
+```{r}
+hist(data_pf_global)
+```
+
+### check structure of the correlations of variables
+#### do a simple check of corr
+```{r}
+df_cor_prep <- data_pf_global %>% mutate_if(is.character, as.factor) 
+df_cor_prep <- df_cor_prep %>% mutate_if(is.factor, as.numeric) 
+df_cor_simple <- cor(df_cor_prep)
+corrplot(df_cor_simple)
+```
+```{r}
+# check correlation between variables
+df_cor <- data_pf_global %>% mutate_if(is.character, as.factor)
+df_cor <- df_cor %>% mutate_if(is.factor, as.numeric)
+#run a correlation and drop the insignificant ones
+corr <- cor(df_cor, use = 'pairwise.complete.obs')
+#prepare to drop duplicates and correlations of 1     
+corr[lower.tri(corr,diag=TRUE)] <- NA 
+# print the corr plot
+print(corr)
+```
+
+# plot the corr matrix
+```{r}
+#plot correlations visually
+corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
+```
+
+### try to understand hf_score
+```{r}
+describe(data_pf_global$pf_identity)
+cor_two <- cor(data_pf_global$hf_score, log(data_pf_global$pf_movement))
+# cor_two produces NA
+plot(data_pf_global$hf_score, data_pf_global$pf_movement)
+cor(x = data_pf_global$hf_score, y= data_pf_global$pf_movement, use = 'complete')
+```
+## 2.1. Remove not needed stuff
+Potentially remove variables with many NAs - e.g. 
+- we remove all economic data
+- decide if to take all possible variables or concentrate on larger summary vars (PCA??)
 ## 2.1. Identifying Missings
 
 End up with a data in a standardized format across all data
@@ -71,6 +132,10 @@ End up with a data in a standardized format across all data
 figure out what relevant questions there are in the data Inspect data
 and its features what data types are there (numerical, categorical,
 ordinal) - they require different treatments
+
+- explore year and country separately
+- explore correlation structure between variables
+- decide whether the individual small vars are relevant or to use only global summary vars
 
 ## 3.1. Descriptive statistics
 
