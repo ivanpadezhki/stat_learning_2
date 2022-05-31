@@ -39,6 +39,8 @@ prevent printing of the R code that generated the plot.
 library(tidyverse)
 library(corrplot)
 library(Hmisc)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 # 1. Input of data
@@ -63,15 +65,24 @@ summary(ds)
 # X is a logical variable that contains only missing values - remove it
 ds <- subset(ds, select = -X)
 ```
+# 2. Overall cleaning
 
+## 2.1. Identifying Missing Values
 Check for any missing values after removing the X column
 
 ```{r}
 sum(is.na(ds)==TRUE)
 ```
 
-## 1.2. Data Cleaning and Filtering
+# 3. Data Exploration
 
+figure out what relevant questions there are in the data Inspect data
+and its features what data types are there (numerical, categorical,
+ordinal) - they require different treatments
+
+## 3.1. Descriptive statistics
+
+visualizations: identify patterns and trends in the data
 organize and tidy the data
 
 ```{r}
@@ -84,7 +95,7 @@ df_cor <- ds %>% mutate_if(is.character, as.factor)
 df_cor <- df_cor %>% mutate_if(is.factor, as.numeric)
 #run a correlation and drop the insignificant ones
 corr <- cor(df_cor)
-#prepare to drop duplicates and correlations of 1     
+#prepare to drop duplicates    
 corr[lower.tri(corr,diag=TRUE)] <- NA 
 # print the corr matrix
 # print(corr)
@@ -95,6 +106,17 @@ plot the corr matrix
 ```{r}
 #plot correlations visually
 corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
+```
+```{r}
+corrplot(cor(df_cor), type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"))
+```
+From the correlation plot, we can see that certain variables are highly correlated. Let's check which ones have a correlation above .90 (arbitrarily chosen so we can see multicollinearity) AND we select only the upper triangle
+```{r}
+w <- which(corr>0.9 & row(corr)<col(corr), arr.ind = TRUE)
+# reconstruct names from positions
+high_cor <- matrix(colnames(corr)[w],ncol=2)
+high_cor
 ```
 
 Check type of the variable that we want to predict and turn it onto
@@ -114,21 +136,9 @@ Plot distribution of the classes
 plot(ds$diagnosis)
 ```
 
-# 2. Overall cleaning
-
-## 2.2. Identifying Missings
-
 End up with a data in a standardized format across all data
 
-# 3. Data Exploration
-
-figure out what relevant questions there are in the data Inspect data
-and its features what data types are there (numerical, categorical,
-ordinal) - they require different treatments
-
-## 3.1. Descriptive statistics
-
-visualizations: identify patterns and trends in the data
+Potentially concentrate on a subset of the data: the set contains mean and standard dev of 10 main characteristics
 
 # 4. Model data
 
