@@ -51,7 +51,7 @@ library(RColorBrewer)
 first accessed 30/05/2022
 
 ```{r}
-ds <- read.csv("data/breast_cancer_data.csv")
+ds <- read.csv("data/diabetes_dataset__2019.csv")
 names(ds)
 attach(ds)
 ```
@@ -63,11 +63,12 @@ ds[1:5,]
 ```{r}
 summary(ds)
 # X is a logical variable that contains only missing values - remove it
-ds <- subset(ds, select = -X)
 ```
+
 # 2. Overall cleaning
 
 ## 2.1. Identifying Missing Values
+
 Check for any missing values after removing the X column
 
 ```{r}
@@ -82,8 +83,8 @@ ordinal) - they require different treatments
 
 ## 3.1. Descriptive statistics
 
-visualizations: identify patterns and trends in the data
-organize and tidy the data
+visualizations: identify patterns and trends in the data organize and
+tidy the data
 
 ```{r}
 hist(ds)
@@ -107,11 +108,17 @@ plot the corr matrix
 #plot correlations visually
 corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
 ```
+
 ```{r}
 corrplot(cor(df_cor), type="upper", order="hclust",
          col=brewer.pal(n=8, name="RdYlBu"))
 ```
-From the correlation plot, we can see that certain variables are highly correlated. Let's check which ones have a correlation above .90 (arbitrarily chosen so we can see multicollinearity) AND we select only the upper triangle
+
+From the correlation plot, we can see that certain variables are highly
+correlated. Let's check which ones have a correlation above .90
+(arbitrarily chosen so we can see multicollinearity) AND we select only
+the upper triangle
+
 ```{r}
 w <- which(corr>0.9 & row(corr)<col(corr), arr.ind = TRUE)
 # reconstruct names from positions
@@ -138,7 +145,8 @@ plot(ds$diagnosis)
 
 End up with a data in a standardized format across all data
 
-Potentially concentrate on a subset of the data: the set contains mean and standard dev of 10 main characteristics
+Potentially concentrate on a subset of the data: the set contains mean
+and standard dev of 10 main characteristics
 
 # 4. Model data
 
