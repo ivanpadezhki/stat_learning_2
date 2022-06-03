@@ -31,6 +31,7 @@ prevent printing of the R code that generated the plot.
 
 ```{r, echo=FALSE}
 library(tidyverse)
+library(ggplot2)
 library(corrplot)
 library(Hmisc)
 library(corrplot)
@@ -228,10 +229,22 @@ class(ds_fin$Stress)
 
 class(ds_fin$BPLevel)
 ```
+
 ```{r}
 summary(ds_fin)
 ```
 
+Density plots for continuous variables - we don't have continuous variables
+
+```{r}
+
+```
+```{r}
+
+```
+
+
+Balanced output variable?
 
 # 2. Overall cleaning
 
@@ -259,7 +272,6 @@ boxplot(diab_BMI,nodiab_BMI, main = "BMI of diabetic and non-diabetic subjects",
 
 
 ```
-
 
 ## 3.1. Descriptive statistics
 
@@ -293,23 +305,48 @@ model.matrix(~0+., data=ds_fin) %>%
 ```
 
 Check if there are some very high correlations
+
 ```{r}
 w <- which(corr>0.9 & row(corr)<col(corr), arr.ind = TRUE)
 # reconstruct names from positions
 high_cor <- matrix(colnames(corr)[w],ncol=2)
 high_cor
 ```
+
 Check out some specific correlations
+
 ```{r}
 cor(ds_fin$Sleep, ds_fin$SoundSleep)
 cor(ds_fin$Pregancies, ds_fin$Pdiabetes, use = "pairwise.complete.obs")
 ```
 
 ```{r}
-
 boxplot(BMI~Diabetic, data = ds_fin)
 ```
+```{r}
+non_diabetic_tot <- which(ds_fin$Diabetic==0)
+#length(non_diabetic_tot) #685 non-diabetic subjects 
 
+diabetic_tot <- which(ds_fin$Diabetic==1)
+#length(diabetic_tot) #266 diabetic subjects 
+
+gender_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Gender))
+names(gender_df) <- c("Diabetic","Gender","Count")
+
+ggplot(data=gender_df, aes(x=Diabetic, y=Count, fill=Gender, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+```
+
+
+
+```{r}
+# Is urination frequency connected with diabetes?
+
+urinate_df <- data.frame(table(ds_fin$Diabetic,ds_fin$UriationFreq))
+names(urinate_df) <- c("Diabetic","Urination_frequency","Count")
+
+ggplot(data=urinate_df, aes(x=Diabetic, y=Count, fill=Urination_frequency, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+```
 
 End up with a data in a standardized format across all data
 
@@ -328,7 +365,6 @@ apply shrinkage regressions
 log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
 summary(log_reg)
 ```
-
 
 # 5. Interpret data
 
