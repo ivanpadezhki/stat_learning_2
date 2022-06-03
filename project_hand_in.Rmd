@@ -24,12 +24,6 @@ chunks within the document. You can embed an R code chunk like this:
 
 ## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
 Note that the `echo = FALSE` parameter was added to the code chunk to
 prevent printing of the R code that generated the plot.
 
@@ -53,7 +47,6 @@ first accessed 30/05/2022
 ```{r}
 ds <- read.csv("data/diabetes_dataset__2019.csv")
 names(ds)
-attach(ds)
 ```
 
 ```{r}
@@ -312,12 +305,13 @@ cor(ds_fin$Sleep, ds_fin$SoundSleep)
 cor(ds_fin$Pregancies, ds_fin$Pdiabetes, use = "pairwise.complete.obs")
 ```
 
+```{r}
+
+boxplot(BMI~Diabetic, data = ds_fin)
+```
 
 
 End up with a data in a standardized format across all data
-
-Potentially concentrate on a subset of the data: the set contains mean
-and standard dev of 10 main characteristics
 
 # 4. Model data
 
