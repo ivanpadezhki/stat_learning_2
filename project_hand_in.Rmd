@@ -64,14 +64,19 @@ ds[1:5,]
 summary(ds)
 # X is a logical variable that contains only missing values - remove it
 ```
+
 Get values for categorical variables
+
 ```{r}
 ncol(ds)
 for(i in 1:ncol(ds)) {       # for-loop over columns
   print(cat(names(ds)[i], unique(ds[,i])))
 }
 ```
-Fix different values for the blood pressure level variable to have them equal
+
+Fix different values for the blood pressure level variable to have them
+equal
+
 ```{r}
 ds$BPLevel[ds$BPLevel == 'High'] <- 'high'
 ds$BPLevel[ds$BPLevel == 'Low'] <- 'low'
@@ -80,7 +85,9 @@ unique(ds['BPLevel'])
 ```
 
 ```{r}
+#cast binary variables to dummies (0/1)
 #Gender: Male=1, Female=0
+ds_fin <- ds
 ds_fin$Gender <- ifelse(ds$Gender == 'Male', 1, 0)
 
 #Diabetes: Yes=1, No=0
@@ -91,29 +98,145 @@ ds_fin$highBP <- ifelse(ds$highBP == 'yes', 1, 0)
 
 #Smoking: Yes=1, No=0
 
-diabetes_dataset__2019$Smoking_num <- ifelse(ds$Smoking == 'yes', 1, 0)
+ds_fin$Smoking <- ifelse(ds$Smoking == 'yes', 1, 0)
 
 #Alcohol: Yes=1, No=0
 
-diabetes_dataset__2019$Alcohol_num <- ifelse(diabetes_dataset__2019$Alcohol == 'yes', 1, 0)
+ds_fin$Alcohol <- ifelse(ds$Alcohol == 'yes', 1, 0)
 
 #RegularMedicine: Yes=1, No=0
 
-diabetes_dataset__2019$RegularMedicine_num <- ifelse(diabetes_dataset__2019$RegularMedicine == 'yes', 1, 0)
+ds_fin$RegularMedicine <- ifelse(ds$RegularMedicine == 'yes', 1, 0)
 
 #UriationFreq: quite often=1, not much=0 
 
-diabetes_dataset__2019$UriationFreq_num <- ifelse(diabetes_dataset__2019$UriationFreq == 'quite often', 1, 0)
+ds_fin$UriationFreq <- ifelse(ds$UriationFreq == 'quite often', 1, 0)
 
+# Convert remaining categorical columns to factors with suffix _f
+# 0 corresponding to lowest factor, 3 to highest
+
+#Age
+vec <- as.factor(ds$Age)
+f <- factor(vec, levels =  c('less than 40','40-49','50-59','60 or older'))
+n <- as.numeric(f)
+nn <- n - 1
+ds_fin$Age <- nn
+
+#Physically Active
+
+vec <- as.factor(ds$PhysicallyActive)
+f <- factor(vec, levels =  c('none','less than half an hr','more than half an hr','one hr or more'))
+n <- as.numeric(f)
+nn <- n - 1
+ds_fin$PhysicallyActive <- nn
+
+#JunkFood
+vec <- as.factor(ds$JunkFood)
+f <- factor(vec, levels =  c('occasionally','often','very often','always'))
+n <- as.numeric(f)
+nn <- n - 1
+ds_fin$JunkFood <- nn
+
+#Stress
+
+vec <- as.factor(ds$Stress)
+f <- factor(vec, levels =  c('not at all','sometimes','very often','always'))
+n <- as.numeric(f)
+nn <- n - 1
+ds_fin$Stress <- nn
 ```
 
+```{r}
+#NUMERIC VARIABLES EDA 
+
+#BMI - continuous 
+
+unique(ds['BMI'])
+
+#Sleep (hours) - continuous
+
+unique(ds['Sleep'])
+
+#SoundSleep (hours) - continuous
+
+unique(ds['SoundSleep'])
+
+#Pregancies (n. of pregnancies) - continuous (0-4)
+
+unique(ds['Pregancies'])
+
+#Pdiabetes - DUMMY (1=had pregnancy diabetes, 0=didn't)
+
+#Fixing the variable Pdiabetes 
+
+unique(ds['Pdiabetes'])
+
+ds_fin$Pdiabetes[ds$Pdiabetes == 'yes'] <- 1
+ds_fin$Pdiabetes[ds$Pdiabetes == 'no'] <- 0
+ds_fin$Pdiabetes[ds$Pdiabetes == ''] <- NA
+ds_fin$Pdiabetes[ds$Pdiabetes == ' no'] <- 0
+unique(ds_fin['Pdiabetes'])
+```
 
 ```{r}
-df_cor <- ds %>% mutate_if(is.character, as.factor)
-df_cor <- df_cor %>% mutate_if(is.factor, as.numeric)
-for(i in 1:ncol(df_cor)) {       # for-loop over columns
-  print(cat(names(df_cor)[i], unique(df_cor[,i])))
-}
+unique(ds['Diabetic'])
+
+ds_fin$Diabetic[ds$Diabetic == 'yes'] <- 1
+ds_fin$Diabetic[ds$Diabetic == 'no'] <- 0
+ds_fin$Diabetic[ds$Diabetic == ' no'] <- 0
+ds_fin$Diabetic[ds$Diabetic == ''] <- NA
+unique(ds_fin['Diabetic'])
+```
+
+```{r}
+#Check that all columns have either numeric data type or factor 
+
+class(ds_fin$BMI)
+
+class(ds_fin$Sleep)
+
+class(ds_fin$SoundSleep)
+
+class(ds_fin$Pregancies)
+
+class(ds_fin$Pdiabetes) #character 
+
+#cast to numeric 
+
+ds_fin$Pdiabetes = as.numeric(ds_fin$Pdiabetes)
+class(ds_fin$Pdiabetes)
+
+class(ds_fin$Diabetic) #character 
+
+ds_fin$Diabetic = as.numeric(ds_fin$Diabetic)
+class(ds_fin$Diabetic)
+
+class(ds_fin$Age)
+
+class(ds_fin$Gender)
+
+class(ds_fin$Family_Diabetes)
+
+class(ds_fin$highBP)
+
+class(ds_fin$Smoking)
+
+class(ds_fin$Alcohol)
+
+class(ds_fin$RegularMedicine)
+
+class(ds_fin$UriationFreq)
+
+class(ds_fin$PhysicallyActive)
+
+class(ds_fin$JunkFood)
+
+class(ds_fin$Stress)
+
+class(ds_fin$BPLevel)
+```
+```{r}
+summary(ds_fin)
 ```
 
 
@@ -124,7 +247,7 @@ for(i in 1:ncol(df_cor)) {       # for-loop over columns
 Check for any missing values after removing the X column
 
 ```{r}
-sum(is.na(ds)==TRUE)
+sum(is.na(ds_fin)==TRUE)
 ```
 
 # 3. Data Exploration
@@ -133,21 +256,29 @@ figure out what relevant questions there are in the data Inspect data
 and its features what data types are there (numerical, categorical,
 ordinal) - they require different treatments
 
+```{r}
+#Is BMI connected to diabetes? --> YES 
+
+diab_BMI = ds_fin$BMI[which(ds_fin$Diabetic==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$Diabetic==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of diabetic and non-diabetic subjects",ylab = "BMI",names = c("diabetic", "not diabetic"))
+
+
+```
+
+
 ## 3.1. Descriptive statistics
 
 visualizations: identify patterns and trends in the data organize and
 tidy the data
 
 ```{r}
-hist(ds)
-```
-
-```{r}
 # check correlation between variables
-df_cor <- ds %>% mutate_if(is.character, as.factor)
+df_cor <- ds_fin %>% mutate_if(is.character, as.factor)
 df_cor <- df_cor %>% mutate_if(is.factor, as.numeric)
 #run a correlation and drop the insignificant ones
-corr <- cor(df_cor)
+corr <- cor(df_cor, use = "pairwise.complete.obs")
 #prepare to drop duplicates    
 corr[lower.tri(corr,diag=TRUE)] <- NA 
 # print the corr matrix
@@ -162,38 +293,26 @@ corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
 ```
 
 ```{r}
-corrplot(cor(df_cor), type="upper", order="hclust",
-         col=brewer.pal(n=8, name="RdYlBu"))
+library(ggcorrplot)
+model.matrix(~0+., data=ds_fin) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
 ```
 
-From the correlation plot, we can see that certain variables are highly
-correlated. Let's check which ones have a correlation above .90
-(arbitrarily chosen so we can see multicollinearity) AND we select only
-the upper triangle
-
+Check if there are some very high correlations
 ```{r}
 w <- which(corr>0.9 & row(corr)<col(corr), arr.ind = TRUE)
 # reconstruct names from positions
 high_cor <- matrix(colnames(corr)[w],ncol=2)
 high_cor
 ```
-
-Check type of the variable that we want to predict and turn it onto
-factor with two levels
-
+Check out some specific correlations
 ```{r}
-class(diagnosis)
-# turn it into factor
-ds$diagnosis <- as.factor(ds$diagnosis)
-# check the levels: should be B for benign and M for malignant
-levels(ds$diagnosis)
+cor(ds_fin$Sleep, ds_fin$SoundSleep)
+cor(ds_fin$Pregancies, ds_fin$Pdiabetes, use = "pairwise.complete.obs")
 ```
 
-Plot distribution of the classes
 
-```{r}
-plot(ds$diagnosis)
-```
 
 End up with a data in a standardized format across all data
 
@@ -210,6 +329,12 @@ essentials to predicting the model
 
 Select relevant features that contribute to the prediction of results or
 apply shrinkage regressions
+
+```{r}
+log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
+summary(log_reg)
+```
+
 
 # 5. Interpret data
 
