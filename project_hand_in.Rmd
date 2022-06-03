@@ -64,6 +64,58 @@ ds[1:5,]
 summary(ds)
 # X is a logical variable that contains only missing values - remove it
 ```
+Get values for categorical variables
+```{r}
+ncol(ds)
+for(i in 1:ncol(ds)) {       # for-loop over columns
+  print(cat(names(ds)[i], unique(ds[,i])))
+}
+```
+Fix different values for the blood pressure level variable to have them equal
+```{r}
+ds$BPLevel[ds$BPLevel == 'High'] <- 'high'
+ds$BPLevel[ds$BPLevel == 'Low'] <- 'low'
+ds$BPLevel[ds$BPLevel == 'normal '] <- 'normal'
+unique(ds['BPLevel'])
+```
+
+```{r}
+#Gender: Male=1, Female=0
+ds_fin$Gender <- ifelse(ds$Gender == 'Male', 1, 0)
+
+#Diabetes: Yes=1, No=0
+ds_fin$Family_Diabetes <- ifelse(ds$Family_Diabetes == 'yes', 1, 0)
+
+#HighBP: Yes=1, No=0
+ds_fin$highBP <- ifelse(ds$highBP == 'yes', 1, 0)
+
+#Smoking: Yes=1, No=0
+
+diabetes_dataset__2019$Smoking_num <- ifelse(ds$Smoking == 'yes', 1, 0)
+
+#Alcohol: Yes=1, No=0
+
+diabetes_dataset__2019$Alcohol_num <- ifelse(diabetes_dataset__2019$Alcohol == 'yes', 1, 0)
+
+#RegularMedicine: Yes=1, No=0
+
+diabetes_dataset__2019$RegularMedicine_num <- ifelse(diabetes_dataset__2019$RegularMedicine == 'yes', 1, 0)
+
+#UriationFreq: quite often=1, not much=0 
+
+diabetes_dataset__2019$UriationFreq_num <- ifelse(diabetes_dataset__2019$UriationFreq == 'quite often', 1, 0)
+
+```
+
+
+```{r}
+df_cor <- ds %>% mutate_if(is.character, as.factor)
+df_cor <- df_cor %>% mutate_if(is.factor, as.numeric)
+for(i in 1:ncol(df_cor)) {       # for-loop over columns
+  print(cat(names(df_cor)[i], unique(df_cor[,i])))
+}
+```
+
 
 # 2. Overall cleaning
 
