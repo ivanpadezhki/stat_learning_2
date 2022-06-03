@@ -264,6 +264,16 @@ nodiab_BMI = ds_fin$BMI[which(ds_fin$Diabetic==0)]
 
 boxplot(diab_BMI,nodiab_BMI, main = "BMI of diabetic and non-diabetic subjects",ylab = "BMI",names = c("diabetic", "not diabetic"))
 
+diab_BMI = ds_fin$BMI[which(ds_fin$Alcohol==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$Alcohol==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of alcohol and non-alcohol subjects",ylab = "BMI",names = c("Alcohol", "No Alcohol"))
+
+diab_BMI = ds_fin$BMI[which(ds_fin$Gender==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$Gender==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of Male and Female subjects",ylab = "BMI",names = c("Male", "Female"))
+
 
 ```
 
