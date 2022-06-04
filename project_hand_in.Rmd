@@ -68,6 +68,20 @@ for(i in 1:ncol(ds)) {       # for-loop over columns
 }
 ```
 
+Variable Age: contains 4 categories
+```{r}
+#Age
+var_age <- table(ds$Age)
+hist(var_age)
+
+vec <- as.factor(ds$Age)
+f <- factor(vec, levels =  c('less than 40','40-49','50-59','60 or older'))
+n <- as.numeric(f)
+nn <- n - 1
+ds_fin$Age <- nn
+```
+
+
 Fix different values for the blood pressure level variable to have them
 equal
 
@@ -110,11 +124,11 @@ ds_fin$UriationFreq <- ifelse(ds$UriationFreq == 'quite often', 1, 0)
 # 0 corresponding to lowest factor, 3 to highest
 
 #Age
-vec <- as.factor(ds$Age)
-f <- factor(vec, levels =  c('less than 40','40-49','50-59','60 or older'))
-n <- as.numeric(f)
-nn <- n - 1
-ds_fin$Age <- nn
+#vec <- as.factor(ds$Age)
+#f <- factor(vec, levels =  c('less than 40','40-49','50-59','60 or older'))
+#n <- as.numeric(f)
+#nn <- n - 1
+#ds_fin$Age <- nn
 
 #Physically Active
 
@@ -346,6 +360,10 @@ urinate_df <- data.frame(table(ds_fin$Diabetic,ds_fin$UriationFreq))
 names(urinate_df) <- c("Diabetic","Urination_frequency","Count")
 
 ggplot(data=urinate_df, aes(x=Diabetic, y=Count, fill=Urination_frequency, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+```
+```{r}
+table(ds_fin$Diabetic)
+#length(which(ds_fin$Diabetic ==1))
 ```
 
 End up with a data in a standardized format across all data
