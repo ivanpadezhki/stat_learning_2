@@ -36,6 +36,7 @@ library(corrplot)
 library(Hmisc)
 library(corrplot)
 library(RColorBrewer)
+library(stats)
 ```
 
 # 1. Input of data
@@ -69,19 +70,40 @@ for(i in 1:ncol(ds)) {       # for-loop over columns
 ```
 
 Variable Age: contains 4 categories
+End up with numerical codes in the "ds_fin" data frame - useful for later correlation plots
 ```{r}
 #Age
-var_age <- table(ds$Age)
-hist(var_age)
+ggplot(ds, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
+  geom_bar(fill='red') +  labs(x='Age')
 
-vec <- as.factor(ds$Age)
-f <- factor(vec, levels =  c('less than 40','40-49','50-59','60 or older'))
+# Transform into numerical codes for the levels
+ds$Age <- as.factor(ds$Age)
+f <- factor(ds$Age, levels =  c('less than 40','40-49','50-59','60 or older'))
 n <- as.numeric(f)
 nn <- n - 1
 ds_fin$Age <- nn
+table(ds_fin$Age)
 ```
 
+Variable Gender
+```{r}
+#Gender: Male=1, Female=0
+ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
+  geom_bar(fill='green') +  labs(x='Gender')
+ds_fin <- ds
+ds_fin$Gender <- ifelse(ds$Gender == 'Male', 1, 0)
+table(ds_fin$Gender)
+```
+Family Diabetes: cast into binary variable. 
+```{r}
+ds_fin$Family_Diabetes <- ifelse(ds$Family_Diabetes == 'yes', 1, 0)
+ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
+  geom_bar(fill='green') +  labs(x='Family Diabetes')
+table(ds_fin$Family_Diabetes) # very equal distribution
+```
 
+The following variables are mostly ordinally scaled, meaning that they have levels, but they are not equally spaced. In theory, taking them as numerical values between 0-3 is not a good idea. We can see if we can make them as dummies. 
+Blood Pressure level: contains same values typed differently.
 Fix different values for the blood pressure level variable to have them
 equal
 
@@ -89,21 +111,32 @@ equal
 ds$BPLevel[ds$BPLevel == 'High'] <- 'high'
 ds$BPLevel[ds$BPLevel == 'Low'] <- 'low'
 ds$BPLevel[ds$BPLevel == 'normal '] <- 'normal'
+ds$BPLevel <- as.factor(ds$BPLevel)
+# check if problem is fixed
 unique(ds['BPLevel'])
+
+# take a look at the distribution of BPLevel
+ggplot(ds, aes(x=reorder(BPLevel, BPLevel, function(x)-length(x)))) + 
+  geom_bar(fill='blue') +  labs(x='Blood Pressure Level')
+
+f <- factor(ds$BPLevel, levels =  c('low','normal','high'))
+n <- as.numeric(f)
+nn <- n - 1
+ds_fin$BPLevel <- nn
+table(ds_fin$BPLevel)
+```
+Next, consider the variable highBP, which we will later analyze for correlation with BPLevel, 
+since they potentially carry very similar information.
+```{r}
+#HighBP: Yes=1, No=0
+ggplot(ds, aes(x=reorder(highBP, highBP, function(x)-length(x)))) + 
+  geom_bar(fill='blue') +  labs(x='High Blood Pressure')
+ds$highBP <- as.factor(ds$highBP)
+ds_fin$highBP <- ifelse(ds$highBP == 'yes', 1, 0)
 ```
 
 ```{r}
-#cast binary variables to dummies (0/1)
-#Gender: Male=1, Female=0
-ds_fin <- ds
-ds_fin$Gender <- ifelse(ds$Gender == 'Male', 1, 0)
-
-#Diabetes: Yes=1, No=0
-ds_fin$Family_Diabetes <- ifelse(ds$Family_Diabetes == 'yes', 1, 0)
-
-#HighBP: Yes=1, No=0
-ds_fin$highBP <- ifelse(ds$highBP == 'yes', 1, 0)
-
+#cast other binary variables to dummies (0/1)
 #Smoking: Yes=1, No=0
 
 ds_fin$Smoking <- ifelse(ds$Smoking == 'yes', 1, 0)
@@ -123,13 +156,6 @@ ds_fin$UriationFreq <- ifelse(ds$UriationFreq == 'quite often', 1, 0)
 # Convert remaining categorical columns to factors with suffix _f
 # 0 corresponding to lowest factor, 3 to highest
 
-#Age
-#vec <- as.factor(ds$Age)
-#f <- factor(vec, levels =  c('less than 40','40-49','50-59','60 or older'))
-#n <- as.numeric(f)
-#nn <- n - 1
-#ds_fin$Age <- nn
-
 #Physically Active
 
 vec <- as.factor(ds$PhysicallyActive)
@@ -137,6 +163,7 @@ f <- factor(vec, levels =  c('none','less than half an hr','more than half an hr
 n <- as.numeric(f)
 nn <- n - 1
 ds_fin$PhysicallyActive <- nn
+# table(ds_fin$PhysicallyActive)
 
 #JunkFood
 vec <- as.factor(ds$JunkFood)
@@ -153,10 +180,9 @@ n <- as.numeric(f)
 nn <- n - 1
 ds_fin$Stress <- nn
 ```
-
+NUMERIC VARIABLES EDA 
+All numerical variables are initially present in integer form. 
 ```{r}
-#NUMERIC VARIABLES EDA 
-
 #BMI - continuous 
 
 unique(ds['BMI'])
@@ -169,7 +195,7 @@ unique(ds['Sleep'])
 
 unique(ds['SoundSleep'])
 
-#Pregancies (n. of pregnancies) - continuous (0-4)
+#Pregancies (n. of pregnancies) - continuous (0-4) (absolutely scaled variable)
 
 unique(ds['Pregancies'])
 
@@ -177,6 +203,7 @@ unique(ds['Pregancies'])
 
 #Fixing the variable Pdiabetes 
 
+# Gestational diabetes
 unique(ds['Pdiabetes'])
 
 ds_fin$Pdiabetes[ds$Pdiabetes == 'yes'] <- 1
@@ -185,7 +212,7 @@ ds_fin$Pdiabetes[ds$Pdiabetes == ''] <- NA
 ds_fin$Pdiabetes[ds$Pdiabetes == ' no'] <- 0
 unique(ds_fin['Pdiabetes'])
 ```
-
+Check out the outut variable Y: Diabetic
 ```{r}
 unique(ds['Diabetic'])
 
@@ -248,27 +275,22 @@ class(ds_fin$BPLevel)
 summary(ds_fin)
 ```
 
-Density plots for continuous variables - we don't have continuous variables
-
-```{r}
-
-```
-```{r}
-
-```
-
-
 Balanced output variable?
+```{r}
+table(ds_fin$Diabetic)
+#length(which(ds_fin$Diabetic ==1))
+```
+
 
 # 2. Overall cleaning
 
 ## 2.1. Identifying Missing Values
 
-Check for any missing values after removing the X column
 
 ```{r}
 sum(is.na(ds_fin)==TRUE)
 ```
+Try to find out where they come from and if there is maybe an individual we have to exclude
 
 # 3. Data Exploration
 
@@ -361,11 +383,6 @@ names(urinate_df) <- c("Diabetic","Urination_frequency","Count")
 
 ggplot(data=urinate_df, aes(x=Diabetic, y=Count, fill=Urination_frequency, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
 ```
-```{r}
-table(ds_fin$Diabetic)
-#length(which(ds_fin$Diabetic ==1))
-```
-
 End up with a data in a standardized format across all data
 
 # 4. Model data
@@ -384,8 +401,58 @@ log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
 summary(log_reg)
 ```
 
+Diagnostics
+```{r}
+log_prob <- predict(log_reg, type = 'response')
+logistic_pred <- rep(0, 905)
+logistic_pred[log_prob>0.5] <- 1
+
+test <- ds_fin$Diabetic[ds_fin]
+
+# since the method that predicts from the model has erased 47 NA observations,
+# we need to take only the complete observations from the Diabetic column
+# in order to compute the confusion matrix
+na_removed <- na.omit(ds_fin)
+table(logistic_pred, na_removed$Diabetic)
+```
+
+
+Deviance - not very informative
+```{r}
+dev_test <- log_reg$null.deviance - log_reg$deviance
+df <- log_reg$df.null - log_reg$df.residual
+p.val <- 1-pchisq(dev_test, df)
+p.val
+```
+```{r}
+log_reg_resid <- residuals(log_reg, type = 'deviance')
+plot(log_reg_resid~fitted(log_reg))
+qqnorm(log_reg_resid)
+qqline(log_reg_resid)
+```
+Deviance tests between models
+```{r}
+#anova(mod.outR, mod.out, test="Chisq")
+```
+
+
+
+
+IDEA: try to allow for interactions between alcohol, smoking and regular medicine
+
+Also maybe interactions between sleep and sound sleep
+
 # 5. Interpret data
 
 How do we present our analysis: basically answer the questions we set in
 the beginning using our results - technical details are necessary but
 make them accessible - tell a story
+
+
+Compare probability between age groups for diabetes
+```{r}
+aov_age <- aov(ds_fin$Diabetic~ds_fin$Age)
+tukey_age <- TukeyHSD(aov_age)
+plot(tukey_age)
+```
+
