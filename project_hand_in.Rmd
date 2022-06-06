@@ -81,6 +81,7 @@ ds$Age <- as.factor(ds$Age)
 f <- factor(ds$Age, levels =  c('less than 40','40-49','50-59','60 or older'))
 n <- as.numeric(f)
 nn <- n - 1
+ds_fin <- ds
 ds_fin$Age <- nn
 table(ds_fin$Age)
 ```
@@ -90,7 +91,6 @@ Variable Gender
 #Gender: Male=1, Female=0
 ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
   geom_bar(fill='green') +  labs(x='Gender')
-ds_fin <- ds
 ds_fin$Gender <- ifelse(ds$Gender == 'Male', 1, 0)
 table(ds_fin$Gender)
 ```
