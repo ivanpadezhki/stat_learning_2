@@ -417,7 +417,7 @@ log_prob <- predict(log_reg, type = 'response')
 logistic_pred <- rep(0, 905)
 logistic_pred[log_prob>0.5] <- 1
 
-test <- ds_fin$Diabetic[ds_fin]
+#test <- ds_fin$Diabetic[ds_fin]
 
 # since the method that predicts from the model has erased 47 NA observations,
 # we need to take only the complete observations from the Diabetic column
@@ -444,7 +444,6 @@ Deviance tests between models
 ```{r}
 #anova(mod.outR, mod.out, test="Chisq")
 ```
-
 
 
 
