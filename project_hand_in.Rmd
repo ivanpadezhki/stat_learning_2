@@ -69,8 +69,9 @@ for(i in 1:ncol(ds)) {       # for-loop over columns
 }
 ```
 
-Variable Age: contains 4 categories
-End up with numerical codes in the "ds_fin" data frame - useful for later correlation plots
+Variable Age: contains 4 categories End up with numerical codes in the
+"ds_fin" data frame - useful for later correlation plots
+
 ```{r}
 #Age
 ggplot(ds, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
@@ -84,9 +85,16 @@ nn <- n - 1
 ds_fin <- ds
 ds_fin$Age <- nn
 table(ds_fin$Age)
+
+
+# contrasts(diet)
+```
+```{r}
+
 ```
 
 Variable Gender
+
 ```{r}
 #Gender: Male=1, Female=0
 ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
@@ -94,7 +102,9 @@ ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) +
 ds_fin$Gender <- ifelse(ds$Gender == 'Male', 1, 0)
 table(ds_fin$Gender)
 ```
-Family Diabetes: cast into binary variable. 
+
+Family Diabetes: cast into binary variable.
+
 ```{r}
 ds_fin$Family_Diabetes <- ifelse(ds$Family_Diabetes == 'yes', 1, 0)
 ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
@@ -102,10 +112,12 @@ ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)
 table(ds_fin$Family_Diabetes) # very equal distribution
 ```
 
-The following variables are mostly ordinally scaled, meaning that they have levels, but they are not equally spaced. In theory, taking them as numerical values between 0-3 is not a good idea. We can see if we can make them as dummies. 
-Blood Pressure level: contains same values typed differently.
-Fix different values for the blood pressure level variable to have them
-equal
+The following variables are mostly ordinally scaled, meaning that they
+have levels, but they are not equally spaced. In theory, taking them as
+numerical values between 0-3 is not a good idea. We can see if we can
+make them as dummies. Blood Pressure level: contains same values typed
+differently. Fix different values for the blood pressure level variable
+to have them equal
 
 ```{r}
 ds$BPLevel[ds$BPLevel == 'High'] <- 'high'
@@ -125,8 +137,11 @@ nn <- n - 1
 ds_fin$BPLevel <- nn
 table(ds_fin$BPLevel)
 ```
-Next, consider the variable highBP, which we will later analyze for correlation with BPLevel, 
-since they potentially carry very similar information.
+
+Next, consider the variable highBP, which we will later analyze for
+correlation with BPLevel, since they potentially carry very similar
+information.
+
 ```{r}
 #HighBP: Yes=1, No=0
 ggplot(ds, aes(x=reorder(highBP, highBP, function(x)-length(x)))) + 
@@ -152,6 +167,11 @@ ds_fin$RegularMedicine <- ifelse(ds$RegularMedicine == 'yes', 1, 0)
 #UriationFreq: quite often=1, not much=0 
 
 ds_fin$UriationFreq <- ifelse(ds$UriationFreq == 'quite often', 1, 0)
+
+# Blood Pressure Level - low/ normal/ high
+ds_fin$BPlow <- ifelse(ds$BPLevel=='low', 1, 0)
+ds_fin$BPhigh <- ifelse(ds$BPLevel == 'high', 1, 0)
+ds_fin$BPLevel <- NULL
 
 # Convert remaining categorical columns to factors with suffix _f
 # 0 corresponding to lowest factor, 3 to highest
@@ -180,8 +200,10 @@ n <- as.numeric(f)
 nn <- n - 1
 ds_fin$Stress <- nn
 ```
-NUMERIC VARIABLES EDA 
-All numerical variables are initially present in integer form. 
+
+NUMERIC VARIABLES EDA All numerical variables are initially present in
+integer form.
+
 ```{r}
 #BMI - continuous 
 
@@ -212,7 +234,9 @@ ds_fin$Pdiabetes[ds$Pdiabetes == ''] <- NA
 ds_fin$Pdiabetes[ds$Pdiabetes == ' no'] <- 0
 unique(ds_fin['Pdiabetes'])
 ```
+
 Check out the outut variable Y: Diabetic
+
 ```{r}
 unique(ds['Diabetic'])
 
@@ -276,21 +300,22 @@ summary(ds_fin)
 ```
 
 Balanced output variable?
+
 ```{r}
 table(ds_fin$Diabetic)
 #length(which(ds_fin$Diabetic ==1))
 ```
 
-
 # 2. Overall cleaning
 
 ## 2.1. Identifying Missing Values
 
-
 ```{r}
 sum(is.na(ds_fin)==TRUE)
 ```
-Try to find out where they come from and if there is maybe an individual we have to exclude
+
+Try to find out where they come from and if there is maybe an individual
+we have to exclude
 
 # 3. Data Exploration
 
@@ -402,6 +427,7 @@ cor(ds_fin$Pregancies, ds_fin$Pdiabetes, use = "pairwise.complete.obs")
 ```{r}
 boxplot(BMI~Diabetic, data = ds_fin)
 ```
+
 ```{r}
 non_diabetic_tot <- which(ds_fin$Diabetic==0)
 #length(non_diabetic_tot) #685 non-diabetic subjects 
@@ -451,8 +477,6 @@ ggplot(data=Pdiabetes_df, aes(x=Diabetic, y=Count, fill=Pdiabetes, label = Count
 
 ```
 
-
-
 ```{r}
 # Is urination frequency connected with diabetes?
 
@@ -461,6 +485,7 @@ names(urinate_df) <- c("Diabetic","Urination_frequency","Count")
 
 ggplot(data=urinate_df, aes(x=Diabetic, y=Count, fill=Urination_frequency, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
 ```
+
 End up with a data in a standardized format across all data
 
 # 4. Model data
@@ -475,17 +500,28 @@ Select relevant features that contribute to the prediction of results or
 apply shrinkage regressions
 
 ```{r}
+library(fastDummies)
+data <- dummy_cols(dataf, select_columns = c('rank', 'discipline'))
 log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
 summary(log_reg)
 ```
+Drop BPhigh and BPlow 
+```{r}
+ncol(ds_fin)
+ds_fin_smaller <- ds_fin[, -c(18,19)]
+names(ds_fin_smaller)
+log_reg_2 <- glm(Diabetic ~., data = ds_fin_smaller, family = binomial)
+summary(log_reg_2)
+```
 
-Diagnostics
+Diagnostics of original full model
+
 ```{r}
 log_prob <- predict(log_reg, type = 'response')
 logistic_pred <- rep(0, 905)
 logistic_pred[log_prob>0.5] <- 1
 
-test <- ds_fin$Diabetic[ds_fin]
+# test <- ds_fin$Diabetic[ds_fin]
 
 # since the method that predicts from the model has erased 47 NA observations,
 # we need to take only the complete observations from the Diabetic column
@@ -494,43 +530,83 @@ na_removed <- na.omit(ds_fin)
 table(logistic_pred, na_removed$Diabetic)
 ```
 
+Deviance of first original full model - not very informative
 
-Deviance - not very informative
 ```{r}
 dev_test <- log_reg$null.deviance - log_reg$deviance
 df <- log_reg$df.null - log_reg$df.residual
 p.val <- 1-pchisq(dev_test, df)
 p.val
 ```
+
 ```{r}
 log_reg_resid <- residuals(log_reg, type = 'deviance')
 plot(log_reg_resid~fitted(log_reg))
 qqnorm(log_reg_resid)
 qqline(log_reg_resid)
 ```
-Deviance tests between models
+
+Deviance tests between models with and without BPlow and BPhigh
+Deviance increased in the model where the two variables are dropped. 
+
 ```{r}
-#anova(mod.outR, mod.out, test="Chisq")
+anova(log_reg, log_reg_2, test="Chisq")
+```
+```{r}
+
+ds_fin_no_highBP <- ds_fin[,-4]
+log_reg_3 <- glm(Diabetic ~., data = ds_fin_no_highBP, family = binomial)
+summary(log_reg_3)
 ```
 
 
-
-
-IDEA: try to allow for interactions between alcohol, smoking and regular medicine
+IDEA: try to allow for interactions between alcohol, smoking and regular
+medicine
 
 Also maybe interactions between sleep and sound sleep
 
-# 5. Interpret data
+THIS IS BACKWARD STEPWISE PREDICTION
+glm.F <- glm(mpg01~., data=train.auto, family=binomial) 
+summary(glm.F)
+
+# step 1
+
+glm.1 <- update(glm.F, .~.-cylinders)
+anova(glm.1, glm.F, test="Chisq")
+summary(glm.1)
+
+
+# 5. LASSO regression
+```{r}
+ds_las <- na.omit(ds_fin)
+# Dumy code categorical predictor variables
+x <- model.matrix(Diabetic~., ds_las)[,-1]
+# Convert the outcome (class) to a numerical variable
+y <- ifelse(ds_las$Diabetic == "pos", 1, 0)
+
+library(glmnet)
+# Find the best lambda using cross-validation
+set.seed(123) 
+#glmnet(x, y, family = "binomial", alpha = 1, lambda = NULL)
+cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+# Fit the final model on the training data
+model <- glmnet(x, y, alpha = 1, family = "binomial",
+                lambda = cv.lasso$lambda.min)
+# Display regression coefficients
+coef(model)
+
+```
+
+# 6. Interpret data
 
 How do we present our analysis: basically answer the questions we set in
 the beginning using our results - technical details are necessary but
 make them accessible - tell a story
 
-
 Compare probability between age groups for diabetes
+
 ```{r}
 aov_age <- aov(ds_fin$Diabetic~ds_fin$Age)
 tukey_age <- TukeyHSD(aov_age)
 plot(tukey_age)
 ```
-
