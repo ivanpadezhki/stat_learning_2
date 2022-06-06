@@ -316,6 +316,39 @@ nodiab_BMI = ds_fin$BMI[which(ds_fin$Gender==0)]
 
 boxplot(diab_BMI,nodiab_BMI, main = "BMI of Male and Female subjects",ylab = "BMI",names = c("Male", "Female"))
 
+diab_BMI = ds_fin$BMI[which(ds_fin$Smoking==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$Smoking==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of Smoker and Non-Smoker subjects",ylab = "BMI",names = c("Smoker", "Non-Smoker"))
+
+diab_BMI = ds_fin$BMI[which(ds_fin$Family_Diabetes==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$Family_Diabetes==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of Family_Diabetes subjects",ylab = "BMI",names = c("Have", "Have Not"))
+
+diab_BMI = ds_fin$BMI[which(ds_fin$highBP==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$highBP==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of High Blood-Pressure subjects",ylab = "BMI",names = c("Yes", "No"))
+
+diab_BMI = ds_fin$BMI[which(ds_fin$RegularMedicine==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$RegularMedicine==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of Regular Medicine Usage subjects",ylab = "BMI",names = c("Yes", "No"))
+
+diab_BMI = ds_fin$BMI[which(ds_fin$UriationFreq==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$UriationFreq==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of Uriation Frequency subjects",ylab = "BMI",names = c("Yes", "No"))
+
+diab_BMI = ds_fin$BMI[which(ds_fin$Pdiabetes==1)]
+nodiab_BMI = ds_fin$BMI[which(ds_fin$Pdiabetes==0)]
+
+boxplot(diab_BMI,nodiab_BMI, main = "BMI of P-Diabetes subjects",ylab = "BMI",names = c("Yes", "No"))
+
+
+
+
 
 ```
 
@@ -381,6 +414,41 @@ names(gender_df) <- c("Diabetic","Gender","Count")
 
 ggplot(data=gender_df, aes(x=Diabetic, y=Count, fill=Gender, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
 
+alcohol_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Alcohol))
+names(alcohol_df) <- c("Diabetic","Alcohol","Count")
+
+ggplot(data=alcohol_df, aes(x=Diabetic, y=Count, fill=Alcohol, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+smoking_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Smoking))
+names(smoking_df) <- c("Diabetic","Smoking","Count")
+
+ggplot(data=smoking_df, aes(x=Diabetic, y=Count, fill=Smoking, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+family_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Family_Diabetes))
+names(family_df) <- c("Diabetic","FamilyDiabetes","Count")
+
+ggplot(data=family_df, aes(x=Diabetic, y=Count, fill=FamilyDiabetes, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+highBP_df <- data.frame(table(ds_fin$Diabetic,ds_fin$highBP))
+names(highBP_df) <- c("Diabetic","HighBP","Count")
+
+ggplot(data=highBP_df, aes(x=Diabetic, y=Count, fill=HighBP, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+RegularMedicine_df <- data.frame(table(ds_fin$Diabetic,ds_fin$RegularMedicine))
+names(RegularMedicine_df) <- c("Diabetic","RegularMedicine","Count")
+
+ggplot(data=RegularMedicine_df, aes(x=Diabetic, y=Count, fill=RegularMedicine, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+UriationFreq_df <- data.frame(table(ds_fin$Diabetic,ds_fin$UriationFreq))
+names(UriationFreq_df) <- c("Diabetic","UriationFreq","Count")
+
+ggplot(data=UriationFreq_df, aes(x=Diabetic, y=Count, fill=UriationFreq, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+Pdiabetes_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Pdiabetes))
+names(Pdiabetes_df) <- c("Diabetic","Pdiabetes","Count")
+
+ggplot(data=Pdiabetes_df, aes(x=Diabetic, y=Count, fill=Pdiabetes, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
 ```
 
 
@@ -417,7 +485,7 @@ log_prob <- predict(log_reg, type = 'response')
 logistic_pred <- rep(0, 905)
 logistic_pred[log_prob>0.5] <- 1
 
-#test <- ds_fin$Diabetic[ds_fin]
+test <- ds_fin$Diabetic[ds_fin]
 
 # since the method that predicts from the model has erased 47 NA observations,
 # we need to take only the complete observations from the Diabetic column
@@ -444,6 +512,7 @@ Deviance tests between models
 ```{r}
 #anova(mod.outR, mod.out, test="Chisq")
 ```
+
 
 
 
