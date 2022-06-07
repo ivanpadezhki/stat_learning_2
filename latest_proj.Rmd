@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggplot2)
 library(corrplot)
+library(ggcorrplot)
 library(Hmisc)
 library(corrplot)
 library(RColorBrewer)
@@ -28,19 +29,20 @@ library(readr)
 
 <https://www.kaggle.com/code/leemun1/predicting-breast-cancer-logistic-regression/data>,
 first accessed 30/05/2022
-
+Read in data directly from GitHub
 ```{r}
 library(readr)
 ds <- read_csv("https://raw.githubusercontent.com/ivanpadezhki/stat_learning_2/master/data/diabetes_dataset__2019.csv?token=GHSAT0AAAAAABTXCTNAD4HUUN5MUAT2TSDEYU6D7XA")
 
 ```
+
+Take an initial look at the structure of the data frame, first 5 observations
 ```{r}
 ds[1:5,]
 ```
 
 
-Get values for categorical variables
-
+Get unique values for all variables
 ```{r}
 for(i in 1:ncol(ds)) {       # for-loop over columns
   print(lapply(ds[i], unique))
@@ -51,38 +53,29 @@ Change all categorical variables to single dummies (e.g. for "Age", base-level w
 then we will have 3 dummies for each of the levels specified)
 
 
+
 # 2. Overall cleaning
 
-##2.1. Normalizing value names 
+## 2.1. Normalizing value names 
 
 ```{r}
-
+# Copy data into a new variable to retain original data frame
 ds_fin <- ds
 
 #Fixing the variable Pdiabetes 
-
-unique(ds_fin['Pdiabetes'])
-
 ds_fin$Pdiabetes[ds_fin$Pdiabetes == ''] <- NA
 ds_fin$Pdiabetes[ds_fin$Pdiabetes == ' no'] <- 'no'
 ds_fin$Diabetic[ds_fin$Diabetic == '0'] <- 'no'
 
 #Fixing the variable Diabetic
-
-unique(ds_fin['Diabetic'])
-
 ds_fin$Diabetic[ds_fin$Diabetic == ' no'] <- 'no'
 ds_fin$Diabetic[ds_fin$Diabetic == ''] <- NA
 
 
 #Fixing the variable BPLevel
-
-unique(ds_fin$BPLevel)
-
 ds_fin$BPLevel[ds_fin$BPLevel == 'High'] <- 'high'
 ds_fin$BPLevel[ds_fin$BPLevel == 'Low'] <- 'low'
 ds_fin$BPLevel[ds_fin$BPLevel == 'normal '] <- 'normal'
-
 ```
 
 ## 2.2. Identifying Missing Values
@@ -92,109 +85,222 @@ ds_fin$BPLevel[ds_fin$BPLevel == 'normal '] <- 'normal'
 sum(is.na(ds_fin)==TRUE)
 ```
 
-#Removing rows which include NAs 
+Removing rows which include NAs 
 ```{r}
 ds_fin <- na.omit(ds_fin)
 ```
 
-##2.3  TUrning categorical variables into single-level dummies
+## 2.3.  TUrning categorical variables into single-level dummies
 
 ```{r}
-as.data.frame(colnames(ds_fin))
-```
-```{r}
-unique(ds_fin$Age)
+# Variable AGE - has 4 levels, cast into 3 dummy variables with baseline <40 yo
+ggplot(ds, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
+  geom_bar(fill='red') +  labs(x='Age')
+
 ds_fin$Age40_49 <- ifelse(ds_fin$Age == "40-49", 1, 0)
 ds_fin$Age50_59 <- ifelse(ds_fin$Age == "50-59", 1, 0)
 ds_fin$Age_60 <- ifelse(ds_fin$Age == "60 or older", 1, 0)
-ds_fin[0:5,]
 ds_fin$Age <- NULL
 
-unique(ds_fin$Gender)
-ds_fin$Male <- ifelse(ds_fin$Gender == "Male", 1, 0)
-unique(ds_fin$Male)
+# Variable GENDER (has two levels: male/female)
+ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
+  geom_bar(fill='green') +  labs(x='Gender')
+
+ds_fin$Gender_M <- ifelse(ds_fin$Gender == "Male", 1, 0)
 ds_fin$Gender <- NULL
 
-unique(ds_fin$Family_Diabetes)
+# Variable FAMILY DIABETES - has two levels (yes/no)
+ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
+  geom_bar(fill='green') +  labs(x='Family Diabetes')
+
 ds_fin$Family_Diabetes <- ifelse(ds_fin$Family_Diabetes == "yes", 1, 0)
-unique(ds_fin$Family_Diabetes)
 
+# Variable high blood pressure - has two levels (yes/no)
+ggplot(ds, aes(x=reorder(highBP, highBP, function(x)-length(x)))) + 
+  geom_bar(fill='blue') +  labs(x='High Blood Pressure')
 
-unique(ds_fin$highBP)
 ds_fin$highBP <- ifelse(ds_fin$highBP == "yes", 1, 0)
-unique(ds_fin$highBP)
 
-
-unique(ds_fin$PhysicallyActive)
+# Variable Physically Active: has 4 levels: none/ less than 30 min/ more than 30 min/ more than 1 hr
+# cast into three dummy variables with "none" as baseline
 ds_fin$PhysLow <- ifelse(ds_fin$PhysicallyActive == "less than half an hr", 1, 0)
 ds_fin$PhysMid <- ifelse(ds_fin$PhysicallyActive == "more than half an hr", 1, 0)
 ds_fin$PhysHigh <- ifelse(ds_fin$PhysicallyActive == "one hr or more", 1, 0)
 ds_fin$PhysicallyActive <- NULL 
 
-
-unique(ds$Smoking)
+# Variable Smoking - has two levels (yes/no)
 ds_fin$Smoking <- ifelse(ds_fin$Smoking == "yes", 1, 0)
 
-unique(ds_fin$Alcohol)
+# Variable Alcohol - has two levels (yes/no)
 ds_fin$Alcohol <- ifelse(ds_fin$Alcohol == "yes", 1, 0)
 
-unique(ds_fin$RegularMedicine)
+# Variable Regular Medicine - has two levels yes/no
 ds_fin$RegularMedicine <- ifelse(ds_fin$RegularMedicine == "yes", 1, 0)
 
-unique(ds$JunkFood)
+# Variable Junk Food - contains 4 levels: occasionally/ often/ very often/ always
 ds_fin$JunkOften <- ifelse(ds_fin$JunkFood == "often", 1, 0)
 ds_fin$JunkVeryOften <- ifelse(ds_fin$JunkFood == "very often", 1, 0)
 ds_fin$JunkAlways <- ifelse(ds_fin$JunkFood == "always", 1, 0)
 ds_fin$JunkFood <- NULL
 
-
-unique(ds_fin$Stress)
+# Variable Stress has 4 levels: not at all/ sometimes/ very often/ always
 ds_fin$StressSometimes <- ifelse(ds_fin$Stress == "sometimes", 1, 0)
 ds_fin$StressOften <- ifelse(ds_fin$Stress == "very often", 1, 0)
 ds_fin$StressAlways <- ifelse(ds_fin$Stress == "always", 1, 0)
 ds_fin$Stress <- NULL
 
-unique(ds_fin$BPLevel)
+# Variable BPLevel - similar to highBP, but has three levels (low/normal/high)
+ggplot(ds, aes(x=reorder(BPLevel, BPLevel, function(x)-length(x)))) + 
+  geom_bar(fill='blue') +  labs(x='Blood Pressure Level')
+
 ds_fin$BPLow <- ifelse(ds_fin$BPLevel == "low", 1, 0)
-ds_fin$BPNormal <- ifelse(ds_fin$BPLevel == "normal", 1, 0)
+ds_fin$BPNormal <- ifelse(ds_fin$BPLevel == "high", 1, 0)
 ds_fin$BPLevel <- NULL
 
-unique(ds$Pdiabetes)
+# Variable PDiabetes: Gestational Diabetes (during pregnancy) - contains yes/no
 ds_fin$Pdiabetes <- ifelse(ds_fin$Pdiabetes == "yes", 1, 0)
 
-unique(ds_fin$UriationFreq)
+# Variable Urination Frequency with two levels - not much/ quite often
 ds_fin$UriationFreq <- ifelse(ds_fin$UriationFreq == "quite often", 1, 0)
 
-unique(ds_fin$Diabetic)
+# Outcome Variable Diabetic with two levels - yes/ no
 ds_fin$Diabetic <- ifelse(ds_fin$Diabetic == "yes", 1, 0)
 
 ds_fin[1:5,]
 
 ```
-Checking every column is the correct data type 
 
+Checking every column is the correct data type
 ```{r}
 for(i in 1:ncol(ds_fin)) {       # for-loop over columns
   print(lapply(ds_fin[i], class))
 }
 ```
-#3.Modeling the data: LOGISTIC REGRESSION 
-##3.1 Full model 
+
+Check if the outcome variable is balanced: two times more individuals do not have diabetes in the current data set. 
+```{r}
+table(ds_fin$Diabetic)
+```
+
+
+# 3. Data Exploration
+
+A Study into BMI and its relationship to other variables - why do we need to know so much about this actually? Shouln't we care more about other variables? 
+```{r}
+#Is BMI connected to diabetes? 
+boxplot(BMI~Diabetic, data = ds_fin, main = "BMI of diabetic and non-diabetic subjects",ylab = "BMI",names = c("not diabetic", "diabetic"))
+
+# BMI and Alcohol
+boxplot(BMI~Alcohol, data = ds_fin, main = "BMI of alcohol and non-alcohol subjects",ylab = "BMI",names = c("No Alcohol", "Alcohol"))
+
+# BMI and Gender
+boxplot(BMI~Gender_M, data = ds_fin, main = "BMI of Male and Female subjects",ylab = "BMI",names = c("Female", "Male"))
+
+# BMI and Smoking
+boxplot(BMI~Smoking, data = ds_fin, main = "BMI of Smoker and Non-Smoker subjects",ylab = "BMI",names = c("Non-Smoker", "Smoker"))
+
+boxplot(BMI~Family_Diabetes, data = ds_fin, main = "BMI of Family_Diabetes subjects",ylab = "BMI",names = c("Have Not", "Have"))
+
+boxplot(BMI~highBP, data = ds_fin, main = "BMI of High Blood-Pressure subjects",ylab = "BMI",names = c("No", "Yes"))
+
+boxplot(BMI~RegularMedicine, data = ds_fin, main = "BMI of Regular Medicine Usage subjects",ylab = "BMI",names = c("No", "Yes"))
+
+boxplot(BMI~UriationFreq, data = ds_fin, main = "BMI of Uriation Frequency subjects",ylab = "BMI",names = c("No", "Yes"))
+
+boxplot(BMI~Pdiabetes, data = ds_fin, main = "BMI of P-Diabetes subjects",ylab = "BMI",names = c("No", "Yes"))
+
+```
+
+I'm not so sure what it happening here
+```{r}
+gender_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Gender_M))
+names(gender_df) <- c("Diabetic","Gender","Count")
+
+ggplot(data=gender_df, aes(x=Diabetic, y=Count, fill=Gender, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+alcohol_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Alcohol))
+names(alcohol_df) <- c("Diabetic","Alcohol","Count")
+
+ggplot(data=alcohol_df, aes(x=Diabetic, y=Count, fill=Alcohol, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+smoking_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Smoking))
+names(smoking_df) <- c("Diabetic","Smoking","Count")
+
+ggplot(data=smoking_df, aes(x=Diabetic, y=Count, fill=Smoking, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+family_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Family_Diabetes))
+names(family_df) <- c("Diabetic","FamilyDiabetes","Count")
+
+ggplot(data=family_df, aes(x=Diabetic, y=Count, fill=FamilyDiabetes, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+highBP_df <- data.frame(table(ds_fin$Diabetic,ds_fin$highBP))
+names(highBP_df) <- c("Diabetic","HighBP","Count")
+
+ggplot(data=highBP_df, aes(x=Diabetic, y=Count, fill=HighBP, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+RegularMedicine_df <- data.frame(table(ds_fin$Diabetic,ds_fin$RegularMedicine))
+names(RegularMedicine_df) <- c("Diabetic","RegularMedicine","Count")
+
+ggplot(data=RegularMedicine_df, aes(x=Diabetic, y=Count, fill=RegularMedicine, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+UriationFreq_df <- data.frame(table(ds_fin$Diabetic,ds_fin$UriationFreq))
+names(UriationFreq_df) <- c("Diabetic","UriationFreq","Count")
+
+ggplot(data=UriationFreq_df, aes(x=Diabetic, y=Count, fill=UriationFreq, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+
+Pdiabetes_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Pdiabetes))
+names(Pdiabetes_df) <- c("Diabetic","Pdiabetes","Count")
+
+ggplot(data=Pdiabetes_df, aes(x=Diabetic, y=Count, fill=Pdiabetes, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
+```
+
+
+Look at an overvview of the correlation structure of all variables
+```{r}
+corr <- cor(df_cor)
+#prepare to drop duplicates    
+corr[lower.tri(corr,diag=TRUE)] <- NA 
+#plot correlations visually
+corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
+```
+```{r}
+library(ggcorrplot)
+model.matrix(~0+., data=ds_fin) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  ggcorrplot(show.diag = F, type="upper", lab=TRUE, lab_size=2)
+```
+
+```{r}
+w <- which(corr>0.6 & row(corr)<col(corr), arr.ind = TRUE)
+# reconstruct names from positions
+high_cor <- matrix(colnames(corr)[w],ncol=2)
+high_cor
+```
+There are two variables highBP and BPhigh, which carry similar information - we will later check which one to exclude from the analysis
+
+# 4. Modeling the data: LOGISTIC REGRESSION 
+## 4.1. Full model 
 ```{r}
 log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
 summary(log_reg)
 ```
 
-##3.2 Diagnostics 
+## 4.2. Diagnostics 
+
+```{r}
+log_prob <- predict(log_reg, type = 'response')
+logistic_pred <- rep(0, 905)
+logistic_pred[log_prob>0.5] <- 1
+table(logistic_pred, ds_fin$Diabetic)
+```
 
 First, we look at the correlation plot of our variables 
 ```{r}
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
 ```
-##3.2 Variable selection 
+## 4.3. Variable selection 
 
 We try dropping the variable "Sleep" since it is heavily correlated (0.54) with the variable "Sound Sleep" AND its P-value in the logistic regression is close to 1. 
 
@@ -209,7 +315,6 @@ Now we produce a new correlation matrix with the new dataset
 
 ```{r}
 
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin[,-6]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -225,7 +330,7 @@ summary(log_reg_noSleep_noAlcohol)
 ## AIC drops to 536.01: CONFIRM dropping variable Alcohol 
 ```
 ```{r}
-library(ggcorrplot)
+
 model.matrix(~0+., data=ds_fin[,-c(5,6)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -246,7 +351,7 @@ summary(log_reg_noSleep_noAlcohol_nohighBP)
 ## AIC drops to 535.29: CONFIRM dropping highBP, keep BPNormal bc AIC higher for previous regression
 ```
 ```{r}
-library(ggcorrplot)
+
 model.matrix(~0+., data=ds_fin[,-c(2,5,6)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -261,7 +366,6 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid)
 ```
 ```{r}
 
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin[,-c(2,5,6,18)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -279,9 +383,6 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften)
 log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressSometimes <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressSometimes, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressSometimes)
 
-colnames(ds_fin)
-
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin[,-c(2,5,6,18,24)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -299,9 +400,7 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes)
 ##AIC drops to 531.57: CONFIRM dropping variable StressSometimes
 ```
 ```{r}
-colnames(ds_fin)
 
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin[,-c(2,5,6,18,23,24)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -316,9 +415,6 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noP
 ```
 
 ```{r}
-colnames(ds_fin)
-
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin[,-c(2,5,6,9,18,23,24)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -329,18 +425,14 @@ log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJu
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways)
 
 ## AIC drops to 529.25: CONFIRM dropping variable JunkAlways 
-
-
 ```
+
 ```{r}
 log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies-StressAlways, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways) ##NO, AIC gets higher 
 
 ```
 ```{r}
-colnames(ds_fin)
-
-library(ggcorrplot)
 model.matrix(~0+., data=ds_fin[,-c(2,5,6,9,18,22,23,24)]) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
@@ -358,7 +450,7 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noP
 ```
 In both cases, AIC gets higher so we DO NOT CONFIRM dropping these variables. 
 
-##NB: 
+## 4.4. NB: 
 Since AIC works well asymptotically (i.e. when we have many more observations than variables) and our models our quite large, I now calculate the BIC (Bayesian Information Criterion) for all models so far to make sure we are dropping variables in a sensible way. 
 
 ```{r}
@@ -381,7 +473,7 @@ isTRUE((bic_1 > bic_2)&(bic_2 > bic_3)&(bic_3 > bic_4)&(bic_4 > bic_5)&(bic_5 > 
 length(colnames(ds_fin[,-c(2,5,6,9,18,22,23,24)])) ##At this point, we have 19 variables 
 ```
 
-##3.3 LASSO logistic regression
+## 4.5. LASSO logistic regression
 
 ```{r}
 library(glmnet)
@@ -410,3 +502,16 @@ coef(lasso_reg)
 
 ```
 
+
+# 5. Interpretation of the data
+How do we present our analysis: basically answer the questions we set in
+the beginning using our results - technical details are necessary but
+make them accessible - tell a story
+
+Compare probability between age groups for diabetes
+
+```{r}
+aov_age <- aov(ds_fin$Diabetic~ds_fin$Age)
+tukey_age <- TukeyHSD(aov_age)
+plot(tukey_age)
+```
