@@ -21,6 +21,7 @@ library(corrplot)
 library(RColorBrewer)
 library(stats)
 library(readr)
+library(glmnet)
 ```
 
 # 1. Input of data
@@ -257,7 +258,7 @@ ggplot(data=Pdiabetes_df, aes(x=Diabetic, y=Count, fill=Pdiabetes, label = Count
 
 Look at an overvview of the correlation structure of all variables
 ```{r}
-corr <- cor(df_cor)
+corr <- cor(ds_fin)
 #prepare to drop duplicates    
 corr[lower.tri(corr,diag=TRUE)] <- NA 
 #plot correlations visually
@@ -276,7 +277,7 @@ w <- which(corr>0.6 & row(corr)<col(corr), arr.ind = TRUE)
 high_cor <- matrix(colnames(corr)[w],ncol=2)
 high_cor
 ```
-There are two variables highBP and BPhigh, which carry similar information - we will later check which one to exclude from the analysis
+There are two variables highBP and BPnormal, which carry similar information - we will later check which one to exclude from the analysis
 
 # 4. Modeling the data: LOGISTIC REGRESSION 
 ## 4.1. Full model 
@@ -293,13 +294,6 @@ logistic_pred <- rep(0, 905)
 logistic_pred[log_prob>0.5] <- 1
 table(logistic_pred, ds_fin$Diabetic)
 ```
-
-First, we look at the correlation plot of our variables 
-```{r}
-model.matrix(~0+., data=ds_fin) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-```
 ## 4.3. Variable selection 
 
 We try dropping the variable "Sleep" since it is heavily correlated (0.54) with the variable "Sound Sleep" AND its P-value in the logistic regression is close to 1. 
@@ -311,6 +305,8 @@ summary(log_reg_noSleep)
 
 ## AIC drops to 536.77, CONFIRM dropping variable Sleep  
 ```
+After removing variable Sleep, the variable SounSleep increases in significance. 
+
 Now we produce a new correlation matrix with the new dataset 
 
 ```{r}
@@ -322,7 +318,7 @@ model.matrix(~0+., data=ds_fin[,-6]) %>%
 
 Now we can observe that the variables Smoking and Alcohol are heavily correlated (0.52) AND Alcohol is not significant 
 in the regression with p-value =0.27. Hence, we try dropping the variable Alcohol. 
-
+However, the variable Smoking becomes less significant once Alcohol is dropped, potentially due to variance suppresion.
 ```{r}
 log_reg_noSleep_noAlcohol <- glm(Diabetic ~. -Sleep-Alcohol, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol)
@@ -429,7 +425,8 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noP
 
 ```{r}
 log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies-StressAlways, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways) ##NO, AIC gets higher 
+summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways) 
+##NO, AIC gets higher 
 
 ```
 ```{r}
@@ -469,6 +466,7 @@ bic_9 <- BIC(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometime
 
 isTRUE((bic_1 > bic_2)&(bic_2 > bic_3)&(bic_3 > bic_4)&(bic_4 > bic_5)&(bic_5 > bic_6)&(bic_6 > bic_7)&(bic_7 > bic_8)&(bic_8>bic_9)) #YES 
 ```
+
 ```{r}
 length(colnames(ds_fin[,-c(2,5,6,9,18,22,23,24)])) ##At this point, we have 19 variables 
 ```
@@ -476,9 +474,6 @@ length(colnames(ds_fin[,-c(2,5,6,9,18,22,23,24)])) ##At this point, we have 19 v
 ## 4.5. LASSO logistic regression
 
 ```{r}
-library(glmnet)
-
-
 y <- ds_fin$Diabetic
 x <- data.matrix(ds_fin[,-12])
 
@@ -500,6 +495,69 @@ coef(lasso_reg)
 # or rather to find out which variables "weigh" more in the insurgence of, say, a sickness?) in order to figure out which one is best. 
 
 
+```
+
+
+## 4.6. Best Subset Selection
+```{r}
+library(leaps)
+# response variable followed by a dot to indicate I want
+# all predictor vars
+regfit.full <- regsubsets(Diabetic~., data=ds_fin, nvmax=26)
+summary(regfit.full)
+reg.summary <- summary(regfit.full)
+reg.summary$outmat
+```
+
+```{r}
+names(reg.summary)
+reg.summary$rsq
+```
+
+```{r}
+# Plotting RSS, adjusted  R2,  Cp, and BIC 
+# for all of the models at once will help us 
+# decide which model to select. 
+
+par(mfrow=c(2,2))
+
+# residual sum of squares
+plot(reg.summary$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+# adjusted-R^2 with its largest value
+plot(reg.summary$adjr2,xlab="Number of Variables",ylab="Adjusted Rsq",type="l")
+which.max(reg.summary$adjr2) # take a vec and itendifies the max value of the vector and returns the index
+points(11,reg.summary$adjr2[11], col="red",cex=2,pch=20)
+
+# Mallow's Cp with its smallest value
+plot(reg.summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+which.min(reg.summary$cp)
+points(10,reg.summary$cp[10],col="red",cex=2,pch=20)
+
+# BIC with its smallest value
+plot(reg.summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+which.min(reg.summary$bic) # take a vec and itendifies the min value of the vector and returns the index
+points(6,reg.summary$bic[6],col="red",cex=2,pch=20)
+
+par(mfrow=c(1,1))
+```
+
+```{r}
+#par(mfrow=c(2,2))
+plot(regfit.full,scale="r2")
+plot(regfit.full,scale="adjr2")
+plot(regfit.full,scale="Cp")
+
+plot(regfit.full,scale="bic")
+coef(regfit.full,6)
+#par(mfrow=c(1,1))
+```
+
+```{r}
+coef(regfit.full, 10)
+
+best.bic <- glm(Diabetic~Family_Diabetes+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+PhysLow + PhysMid + StressSometimes+ BPNormal, data=ds_fin, family = binomial)
+summary(best.bic)
 ```
 
 
