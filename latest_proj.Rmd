@@ -559,12 +559,18 @@ coef(regfit.full, 10)
 best.bic <- glm(Diabetic~Family_Diabetes+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+PhysLow + PhysMid + StressSometimes+ BPNormal, data=ds_fin, family = binomial)
 summary(best.bic)
 ```
-
+The results from the best variable subset selection are in accordance with the results from the selection done by hand and verified by checking resulting correlations and up-or-down moves of the AIC. This would mean excluding the variables Smoking, Alcohol, Pregnancies, JunkAlways, StressOften, Sleep, HighBP, BPLow
 
 # 5. Interpretation of the data
 How do we present our analysis: basically answer the questions we set in
 the beginning using our results - technical details are necessary but
 make them accessible - tell a story
+
+Look at relationship between Pdiabetes and Pregnancies - seems like the number of pregnancies increases the chance of Gestational Diabetes - important to consider their relationship in the model!
+```{r}
+boxplot(Pregancies~Pdiabetes, data = ds_fin, main = "Pregnancies and Gestational Diabetes",ylab = "Number of Pregnancies", xlab = "Gestational Diabetes", names = c('No', "Yes"))
+```
+
 
 Compare probability between age groups for diabetes
 
