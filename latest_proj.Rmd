@@ -10,8 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Libraries
-
-```{r, echo=FALSE}
+Import necessary libraries for the analysis. 
+```{r, label= 'libraries', include=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(corrplot)
@@ -22,40 +22,37 @@ library(RColorBrewer)
 library(stats)
 library(readr)
 library(glmnet)
+library(gridExtra) 
+library(grid)
 ```
 
 # 1. Input of data
 
 ## 1.1. Dataset Breast Cancer
+The data set chosen for the current project concerns a study on Diabetes. The related article is Tigga, N. P., & Garg, S. (2020). Prediction of Type 2 Diabetes using Machine Learning Classification Methods. Procedia Computer Science, 167, 706-716. DOI: https://doi.org/10.1016/j.procs.2020.03.336 and the data set can be found at <https://www.kaggle.com/datasets/tigganeha4/diabetes-dataset-2019>, which was first accessed on 30/05/2022.
 
-<https://www.kaggle.com/code/leemun1/predicting-breast-cancer-logistic-regression/data>,
-first accessed 30/05/2022
+
 Read in data directly from GitHub
 ```{r}
 library(readr)
 ds <- read_csv("https://raw.githubusercontent.com/ivanpadezhki/stat_learning_2/master/data/diabetes_dataset__2019.csv?token=GHSAT0AAAAAABTXCTNAD4HUUN5MUAT2TSDEYU6D7XA")
 
 ```
-
-Take an initial look at the structure of the data frame, first 5 observations
+The data set contains 18 columns - 17 predictor variables and one outcome variable. After taking an initial look at the structure of the data frame, it is visible that most of the variables are categorical and only few predictors have numerical values. The outcome variable is binary and describes whether the individual observation is a case of diabetes or not. 
 ```{r}
 ds[1:5,]
 ```
 
-
-Get unique values for all variables
+Furthermore, an inspection of the unique values for all variables shows that some categorical variables (BPLevel, Pdiabetes, Diabetes) have received different codes for the same levels (e.g. some are lowercase, others start with a capital letter or for example some have spaces). On the other hand, the numerical variables are BMI, Sleep and SoundSleep. BMI is ranging from 15 to 45 with a mean of 25.764 and standard deviation 5.403. The variable Sleep measures the number of hour per night, and ranges from 4 to 11 hours (\mu = 6.95, std = 1.273). The last numerical variable is SoundSleep, which is in a range between 0 and 11 hours per night (mean = 5.496, standard deviation = 1.866). 
 ```{r}
 for(i in 1:ncol(ds)) {       # for-loop over columns
   print(lapply(ds[i], unique))
 }
 ```
 
-Change all categorical variables to single dummies (e.g. for "Age", base-level will be "less than 40",
-then we will have 3 dummies for each of the levels specified)
+The next step in the analysis is to clean the variables. This includes the normalization of the value labels for some variables, as well as the transformation of categorical variables into dummies (e.g. for "Age", base-level will be "less than 40", then we will have 3 dummies for each of the levels specified). 
 
-
-
-# 2. Overall cleaning
+# 2. Data cleaning
 
 ## 2.1. Normalizing value names 
 
@@ -63,10 +60,13 @@ then we will have 3 dummies for each of the levels specified)
 # Copy data into a new variable to retain original data frame
 ds_fin <- ds
 
+# Fixing variable name Pregancies
+ds_fin <- ds_fin %>% rename(Pregnancies=Pregancies)
+
 #Fixing the variable Pdiabetes 
 ds_fin$Pdiabetes[ds_fin$Pdiabetes == ''] <- NA
 ds_fin$Pdiabetes[ds_fin$Pdiabetes == ' no'] <- 'no'
-ds_fin$Diabetic[ds_fin$Diabetic == '0'] <- 'no'
+ds_fin$Pdiabetes[ds_fin$Pdiabetes == '0'] <- 'no'
 
 #Fixing the variable Diabetic
 ds_fin$Diabetic[ds_fin$Diabetic == ' no'] <- 'no'
@@ -77,49 +77,52 @@ ds_fin$Diabetic[ds_fin$Diabetic == ''] <- NA
 ds_fin$BPLevel[ds_fin$BPLevel == 'High'] <- 'high'
 ds_fin$BPLevel[ds_fin$BPLevel == 'Low'] <- 'low'
 ds_fin$BPLevel[ds_fin$BPLevel == 'normal '] <- 'normal'
+
+# Fixing the variable RegularMedicine
+ds_fin$RegularMedicine[ds_fin$RegularMedicine == 'o'] <- 'no'
 ```
 
 ## 2.2. Identifying Missing Values
 
-
+The whole data set contains 48 missing values and in light of the relatively large number of observations, the rows containing NA values will be removed from the data set prior to analysis. 
 ```{r}
 sum(is.na(ds_fin)==TRUE)
 ```
-
-Removing rows which include NAs 
+Before removing the rows, we investigate the cases with missing values to identify potential patterns. In fact, most of the missing values are in the variable 'Pregnancies'. The research paper provides no explanation for the high number of NA's in this variable. Furthermore, the NA's are present for both female and male individuals, so there is not a reason to suspect a pattern. 
 ```{r}
-ds_fin <- na.omit(ds_fin)
+ds_fin[rowSums(is.na(ds_fin)) > 0, ]
 ```
 
-## 2.3.  TUrning categorical variables into single-level dummies
+Next, the rows containing missing values are removed from the data set. 
+```{r}
+ds_fin <- na.omit(ds_fin)
+ds_pre <- ds_fin
+```
+However, besides two cases of NAs in the Pregnancies variable, all individuals with missing values belong to the group without diabetes. The following check shows not only that the output variable is unbalanced (this is discussed in detail further below), but also that most removed observations belong to the group without diabetes.
+
+```{r}
+table(ds$Diabetic) - table(ds_fin$Diabetic)
+```
+
+## 2.3.  Turning categorical variables into single-level dummies
+
+An important step of the preparation of the data for following analyses is the transformation of categorical variables into dummies. Binary variables with yes/no as levels are coded as 1 versus 0. For variables with more than two levels, the lowest level is taken as baseline and the rest are contrasted with it. The reason for this choice of dummy coding is that none of the categorical variables are nominally scaled, rather they are ordinal variables without measurable distances between different levels. Therefore, coding them as numerical variables is not appropriate. The end result is a data set containing 26 predictor variables. 
 
 ```{r}
 # Variable AGE - has 4 levels, cast into 3 dummy variables with baseline <40 yo
-ggplot(ds, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
-  geom_bar(fill='red') +  labs(x='Age')
-
 ds_fin$Age40_49 <- ifelse(ds_fin$Age == "40-49", 1, 0)
 ds_fin$Age50_59 <- ifelse(ds_fin$Age == "50-59", 1, 0)
 ds_fin$Age_60 <- ifelse(ds_fin$Age == "60 or older", 1, 0)
 ds_fin$Age <- NULL
 
 # Variable GENDER (has two levels: male/female)
-ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
-  geom_bar(fill='green') +  labs(x='Gender')
-
 ds_fin$Gender_M <- ifelse(ds_fin$Gender == "Male", 1, 0)
 ds_fin$Gender <- NULL
 
 # Variable FAMILY DIABETES - has two levels (yes/no)
-ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
-  geom_bar(fill='green') +  labs(x='Family Diabetes')
-
 ds_fin$Family_Diabetes <- ifelse(ds_fin$Family_Diabetes == "yes", 1, 0)
 
 # Variable high blood pressure - has two levels (yes/no)
-ggplot(ds, aes(x=reorder(highBP, highBP, function(x)-length(x)))) + 
-  geom_bar(fill='blue') +  labs(x='High Blood Pressure')
-
 ds_fin$highBP <- ifelse(ds_fin$highBP == "yes", 1, 0)
 
 # Variable Physically Active: has 4 levels: none/ less than 30 min/ more than 30 min/ more than 1 hr
@@ -151,11 +154,8 @@ ds_fin$StressAlways <- ifelse(ds_fin$Stress == "always", 1, 0)
 ds_fin$Stress <- NULL
 
 # Variable BPLevel - similar to highBP, but has three levels (low/normal/high)
-ggplot(ds, aes(x=reorder(BPLevel, BPLevel, function(x)-length(x)))) + 
-  geom_bar(fill='blue') +  labs(x='Blood Pressure Level')
-
-ds_fin$BPLow <- ifelse(ds_fin$BPLevel == "low", 1, 0)
-ds_fin$BPNormal <- ifelse(ds_fin$BPLevel == "high", 1, 0)
+ds_fin$BPNormal <- ifelse(ds_fin$BPLevel == "normal", 1, 0)
+ds_fin$BPHigh <- ifelse(ds_fin$BPLevel == "high", 1, 0)
 ds_fin$BPLevel <- NULL
 
 # Variable PDiabetes: Gestational Diabetes (during pregnancy) - contains yes/no
@@ -166,30 +166,83 @@ ds_fin$UriationFreq <- ifelse(ds_fin$UriationFreq == "quite often", 1, 0)
 
 # Outcome Variable Diabetic with two levels - yes/ no
 ds_fin$Diabetic <- ifelse(ds_fin$Diabetic == "yes", 1, 0)
-
-ds_fin[1:5,]
-
 ```
 
-Checking every column is the correct data type
+Perform a check of the transformation. 
 ```{r}
+# returns an output only if a certain variable is not numeric
 for(i in 1:ncol(ds_fin)) {       # for-loop over columns
-  print(lapply(ds_fin[i], class))
+  if (lapply(ds_fin[1], class) != 'numeric'){
+    print(lapply(ds_fin[i], class))
+  }
 }
 ```
 
-Check if the outcome variable is balanced: two times more individuals do not have diabetes in the current data set. 
+An important question is whether the outcome variable is balanced. In the current data set, there are more than two times more individuals do not have diabetes in the current data set, meaning that people with diabetes are a minority class. Since this is not a large imbalance, the analyses will be performed without any data up/ or down-sampling. However, due to the fact that logistic regression is not well fit for imbalanced data, the development of this problem will be monitored throughout the analysis, especially in the diagnosis of the model.
+
 ```{r}
 table(ds_fin$Diabetic)
 ```
-
-
 # 3. Data Exploration
 
-A Study into BMI and its relationship to other variables - why do we need to know so much about this actually? Shouln't we care more about other variables? 
+```{r}
+# ggplot(ds, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
+#   geom_bar(fill='red') +  labs(x='Age')
+# ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
+#   geom_bar(fill='green') +  labs(x='Gender')
+# ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
+#   geom_bar(fill='green') +  labs(x='Family Diabetes')
+# 
+# ggplot(ds, aes(x=reorder(highBP, highBP, function(x)-length(x)))) + 
+#   geom_bar(fill='blue') +  labs(x='High Blood Pressure')
+# ggplot(ds, aes(x=reorder(BPLevel, BPLevel, function(x)-length(x)))) + 
+#   geom_bar(fill='blue') +  labs(x='Blood Pressure Level')
+```
+
+First, the distributions of the numerical variables are evaluated
+
+```{r}
+# histogram of numerical variables
+hist_bmi <- ggplot(ds_fin, aes(x=BMI)) + 
+  geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "BMI")
+hist_sleep <- ggplot(ds_fin, aes(x=Sleep)) + 
+  geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Hours of Sleep")
+hist_soundsl <- ggplot(ds_fin, aes(x=SoundSleep)) + 
+  geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Hours of Sound Sleep")
+hist_preg <- ggplot(ds_fin, aes(x=Pregnancies)) + 
+  geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Number of Pregnancies")
+grid.arrange(hist_bmi, hist_sleep, hist_soundsl, hist_preg, ncol = 4, top=textGrob("Histograms of Numerical Variables"))
+```
+
+Additionally, the relationship between Sleep and Sound Sleep is evaluated
+```{r}
+ggplot(ds_pre, aes(x=Sleep, y=SoundSleep, shape = Diabetic, color = Diabetic)) + geom_point() +
+  geom_smooth(method=lm, level=0.95) + labs(y = "Hours of Sound Sleep", title = "Scatter Plot of Sleep and Sound Sleep")
+```
+
+Furthermore, the relationship of the numerical variables with the outcome variable is explored.
 ```{r}
 #Is BMI connected to diabetes? 
-boxplot(BMI~Diabetic, data = ds_fin, main = "BMI of diabetic and non-diabetic subjects",ylab = "BMI",names = c("not diabetic", "diabetic"))
+box_bmi <- ggplot(ds_pre, aes(x=Diabetic, y=BMI)) + 
+    geom_boxplot()
+box_sleep <- ggplot(ds_pre, aes(x=Diabetic, y=Sleep)) + 
+    geom_boxplot()
+box_ssleep <- ggplot(ds_pre, aes(x=Diabetic, y=SoundSleep)) + 
+    geom_boxplot()
+grid.arrange(box_bmi, box_sleep, box_ssleep, ncol = 3, top=textGrob("Boxplots of Numerical Variables"))
+```
+And the relationship between Diabetes, Pregnancies and Gestational Diabetes is inspected. It seems like the number of pregnancies increases the chance of Gestational Diabetes. 
+```{r}
+ggplot(ds_pre, aes(x=Pdiabetes, y=Pregnancies, fill = Diabetic)) + 
+    geom_boxplot() + labs(x = "Gestational Diabetes", y = "Pregnancies", title = "Number of Pregnancies by Diebetes and Gestational Diabetes")
+```
+
+GUYS, I am not sure if we need this deep dive into BMI?? 
+
+```{r}
+
+ggplot(ds_pre, aes(x=Alcohol, y=BMI, fill = Diabetic)) + 
+    geom_boxplot()
 
 # BMI and Alcohol
 boxplot(BMI~Alcohol, data = ds_fin, main = "BMI of alcohol and non-alcohol subjects",ylab = "BMI",names = c("No Alcohol", "Alcohol"))
@@ -212,7 +265,7 @@ boxplot(BMI~Pdiabetes, data = ds_fin, main = "BMI of P-Diabetes subjects",ylab =
 
 ```
 
-I'm not so sure what it happening here
+I'm not so sure what it happening here - we need to concentrate on a subset of this and present it as one graph potentially. 
 ```{r}
 gender_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Gender_M))
 names(gender_df) <- c("Diabetic","Gender","Count")
@@ -256,7 +309,7 @@ ggplot(data=Pdiabetes_df, aes(x=Diabetic, y=Count, fill=Pdiabetes, label = Count
 ```
 
 
-Look at an overvview of the correlation structure of all variables
+Look at an overview of the correlation structure of all variables
 ```{r}
 corr <- cor(ds_fin)
 #prepare to drop duplicates    
@@ -264,6 +317,7 @@ corr[lower.tri(corr,diag=TRUE)] <- NA
 #plot correlations visually
 corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
 ```
+This correlation plot is in fact better, we also have access to the currelation coefficients. 
 ```{r}
 library(ggcorrplot)
 model.matrix(~0+., data=ds_fin) %>% 
@@ -272,12 +326,17 @@ model.matrix(~0+., data=ds_fin) %>%
 ```
 
 ```{r}
-w <- which(corr>0.6 & row(corr)<col(corr), arr.ind = TRUE)
+w <- which(abs(corr)>0.5 & row(corr)<col(corr), arr.ind = TRUE)
 # reconstruct names from positions
 high_cor <- matrix(colnames(corr)[w],ncol=2)
 high_cor
 ```
-There are two variables highBP and BPnormal, which carry similar information - we will later check which one to exclude from the analysis
+There are three variables highBP and BPnormal and BPhigh, which carry similar information - we will later check which one to exclude from the analysis (the correlation is above .6)
+
+Additionally, Smoking & Alcohol, Sleep & SoundSleep, StressSometimes & StressOften are correlated above .5. 
+
+Potentially consider oversampling the minority class (Diabetic people) to deal with the balance problem.
+
 
 # 4. Modeling the data: LOGISTIC REGRESSION 
 ## 4.1. Full model 
@@ -506,7 +565,6 @@ library(leaps)
 regfit.full <- regsubsets(Diabetic~., data=ds_fin, nvmax=26)
 summary(regfit.full)
 reg.summary <- summary(regfit.full)
-reg.summary$outmat
 ```
 
 ```{r}
@@ -564,13 +622,7 @@ The results from the best variable subset selection are in accordance with the r
 # 5. Interpretation of the data
 How do we present our analysis: basically answer the questions we set in
 the beginning using our results - technical details are necessary but
-make them accessible - tell a story
-
-Look at relationship between Pdiabetes and Pregnancies - seems like the number of pregnancies increases the chance of Gestational Diabetes - important to consider their relationship in the model!
-```{r}
-boxplot(Pregancies~Pdiabetes, data = ds_fin, main = "Pregnancies and Gestational Diabetes",ylab = "Number of Pregnancies", xlab = "Gestational Diabetes", names = c('No', "Yes"))
-```
-
+make them accessible - tell a story. 
 
 Compare probability between age groups for diabetes
 
