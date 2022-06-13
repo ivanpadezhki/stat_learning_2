@@ -647,9 +647,8 @@ The results from the best variable subset selection are in accordance with the r
 ```{r}
 model <- glm(Diabetic ~., data = train.data, family = binomial)
 summary(model)
-coef(model)
 step.model <- model %>% stepAIC(trace = FALSE)
-coef(step.model)
+summary(step.model)
 ```
 
 ```{r}
