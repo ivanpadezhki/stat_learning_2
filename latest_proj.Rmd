@@ -72,7 +72,6 @@ ds_fin$Pdiabetes[ds_fin$Pdiabetes == '0'] <- 'no'
 ds_fin$Diabetic[ds_fin$Diabetic == ' no'] <- 'no'
 ds_fin$Diabetic[ds_fin$Diabetic == ''] <- NA
 
-
 #Fixing the variable BPLevel
 ds_fin$BPLevel[ds_fin$BPLevel == 'High'] <- 'high'
 ds_fin$BPLevel[ds_fin$BPLevel == 'Low'] <- 'low'
@@ -214,13 +213,13 @@ hist_preg <- ggplot(ds_fin, aes(x=Pregnancies)) +
 grid.arrange(hist_bmi, hist_sleep, hist_soundsl, hist_preg, ncol = 4, top=textGrob("Histograms of Numerical Variables"))
 ```
 
-Additionally, the relationship between Sleep and Sound Sleep is evaluated
+Additionally, the relationship between Sleep and Sound Sleep is evaluated. There seems to be reason to suspect possible interaction between the two variables, potentially due to correlation. For this reason, in a future model we will consider excluding one of the two variables. 
 ```{r}
 ggplot(ds_pre, aes(x=Sleep, y=SoundSleep, shape = Diabetic, color = Diabetic)) + geom_point() +
   geom_smooth(method=lm, level=0.95) + labs(y = "Hours of Sound Sleep", title = "Scatter Plot of Sleep and Sound Sleep")
 ```
 
-Furthermore, the relationship of the numerical variables with the outcome variable is explored.
+Furthermore, the relationship of the numerical variables with the outcome variable is explored. There doesn't seem to be a reason to expect large differences in the outcome variable based on the three numerical variables studied below. 
 ```{r}
 #Is BMI connected to diabetes? 
 box_bmi <- ggplot(ds_pre, aes(x=Diabetic, y=BMI)) + 
@@ -338,6 +337,10 @@ Additionally, Smoking & Alcohol, Sleep & SoundSleep, StressSometimes & StressOft
 Potentially consider oversampling the minority class (Diabetic people) to deal with the balance problem.
 
 
+```{r}
+list(names(ds_fin))
+```
+
 # 4. Modeling the data: LOGISTIC REGRESSION 
 ## 4.1. Full model 
 ```{r}
@@ -384,6 +387,7 @@ summary(log_reg_noSleep_noAlcohol)
 
 ## AIC drops to 536.01: CONFIRM dropping variable Alcohol 
 ```
+
 ```{r}
 
 model.matrix(~0+., data=ds_fin[,-c(5,6)]) %>% 
@@ -463,7 +467,7 @@ model.matrix(~0+., data=ds_fin[,-c(2,5,6,18,23,24)]) %>%
 Moreover, the variable Pregancies (i.e. n. of pregnancies) is misleading our model since it is heavily correlated to the Male variable(-0.5) for obvious reasons. Since papers on the subejct (FIND A SPECIFIC ONE) point to gestational diabetes as an important factor in order to develop diabetes type 2, rather than pregnancy per se, we try dropping this variable. 
 
 ```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies, data = ds_fin, family = binomial)
+log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg)
 
 ##AIC drops to 531.02: CONFIRM dropping variable Pregancies 
@@ -476,7 +480,7 @@ model.matrix(~0+., data=ds_fin[,-c(2,5,6,9,18,23,24)]) %>%
 ```
 Now, we can observe variables JunkAlways and StressAlways are heavily correlated (0.28) AND the variable JunkAlways is not significant (p-value=0.63), while STressAlways is somewhat significant. We try dropping both and observe the AIC. 
 ```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies-JunkAlways, data = ds_fin, family = binomial)
+log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-JunkAlways, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways)
 
 ## AIC drops to 529.25: CONFIRM dropping variable JunkAlways 
