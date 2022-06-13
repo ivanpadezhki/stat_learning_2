@@ -15,6 +15,7 @@ Import necessary libraries for the analysis.
 library(tidyverse)
 library(MASS)
 library(caret)
+library(smotefamily)
 library(ggplot2)
 library(corrplot)
 library(ggcorrplot)
@@ -345,10 +346,6 @@ list(names(ds_fin))
 
 # 4. Modeling the data: LOGISTIC REGRESSION 
 
-Oversample the minority group - SMOTE
-```{r}
-
-```
 
 Performing a train-test split for model validation
 ```{r}
@@ -667,7 +664,7 @@ mean(predicted.classes == observed.classes)
 
 ```{r}
 # Make predictions
-probabilities <- predict(step.model, test.data, type = "response")
+probabilities <- predict(best.aic, test.data, type = "response")
 predicted.classes <- ifelse(probabilities > 0.5, 1,0)
 # Prediction accuracy
 observed.classes <- test.data$Diabetic
@@ -675,6 +672,58 @@ mean(predicted.classes == observed.classes)
 ```
 
 
+## 4.8. Stepwise with SMOTE
+Over-sample the minority group - SMOTE
+```{r}
+ds_smoted <- SMOTE(ds_fin[,-12], target = ds_fin$Diabetic, K = 4, dup_size = 1.5)
+ds_oversampled = ds_smoted$data
+table(ds_oversampled$class)
+ds_oversampled$class <- as.factor(ds_oversampled$class)
+```
+
+Performing a train-test split for model validation
+```{r}
+# Split the data into training and test set
+set.seed(123)
+training.samples_over <- ds_oversampled$class %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train.data_over  <- ds_oversampled[training.samples_over, ]
+test.data_over <- ds_oversampled[-training.samples_over, ]
+```
+
+
+```{r}
+model_over <- glm(class ~., data = train.data_over, family = binomial)
+summary(model_over)
+step.model_over <- model_over %>% stepAIC(trace = FALSE)
+summary(step.model_over)
+```
+
+```{r}
+best.aic <- glm(class~Family_Diabetes+Smoking+SoundSleep+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+Gender_M+PhysLow + PhysHigh + StressAlways+ BPHigh, data=train.data_over, family = binomial)
+summary(best.aic)
+```
+
+```{r}
+# Make predictions
+probabilities <- model %>% predict(test.data_over, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+# Prediction accuracy
+observed.classes <- test.data_over$class
+mean(predicted.classes == observed.classes)
+```
+
+
+
+```{r}
+# Make predictions
+probabilities <- predict(best.aic, test.data_over, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1,0)
+# Prediction accuracy
+observed.classes <- test.data_over$class
+mean(predicted.classes == observed.classes)
+```
+The SMOTEd data set actually leads to worse prediction accuracy compared to the unbalanced data set. 
 # 5. Interpretation of the data
 How do we present our analysis: basically answer the questions we set in
 the beginning using our results - technical details are necessary but
