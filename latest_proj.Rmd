@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 Import necessary libraries for the analysis. 
 ```{r, label= 'libraries', include=FALSE}
 library(tidyverse)
+library(MASS)
+library(caret)
 library(ggplot2)
 library(corrplot)
 library(ggcorrplot)
@@ -342,11 +344,29 @@ list(names(ds_fin))
 ```
 
 # 4. Modeling the data: LOGISTIC REGRESSION 
+
+Oversample the minority group - SMOTE
+```{r}
+
+```
+
+Performing a train-test split for model validation
+```{r}
+# Split the data into training and test set
+set.seed(123)
+training.samples <- ds_fin$Diabetic %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- ds_fin[training.samples, ]
+test.data <- ds_fin[-training.samples, ]
+```
+
+
 ## 4.1. Full model 
 ```{r}
 log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
 summary(log_reg)
 ```
+
 
 ## 4.2. Diagnostics 
 
@@ -487,7 +507,7 @@ summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noP
 ```
 
 ```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies-StressAlways, data = ds_fin, family = binomial)
+log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-StressAlways, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways) 
 ##NO, AIC gets higher 
 
@@ -500,12 +520,12 @@ model.matrix(~0+., data=ds_fin[,-c(2,5,6,9,18,22,23,24)]) %>%
 Now, we see that variable BPLow is not significant AND is heavily correlated with BPNormal (-0.29). We try dropping both and observe the AIC.
 
 ```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPlow <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies-StressAlways-BPLow, data = ds_fin, family = binomial)
+log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPlow <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-StressAlways-BPLow, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPlow) ##NO, AIC gets higher 
 
 ```
 ```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPNormal <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregancies-StressAlways-BPNormal, data = ds_fin, family = binomial)
+log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPNormal <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-StressAlways-BPNormal, data = ds_fin, family = binomial)
 summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPNormal) ##NO, AIC gets higher
 ```
 In both cases, AIC gets higher so we DO NOT CONFIRM dropping these variables. 
@@ -618,10 +638,43 @@ coef(regfit.full,6)
 ```{r}
 coef(regfit.full, 10)
 
-best.bic <- glm(Diabetic~Family_Diabetes+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+PhysLow + PhysMid + StressSometimes+ BPNormal, data=ds_fin, family = binomial)
+best.bic <- glm(Diabetic~Family_Diabetes+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+PhysLow + PhysMid + StressSometimes+ BPHigh, data=ds_fin, family = binomial)
 summary(best.bic)
 ```
 The results from the best variable subset selection are in accordance with the results from the selection done by hand and verified by checking resulting correlations and up-or-down moves of the AIC. This would mean excluding the variables Smoking, Alcohol, Pregnancies, JunkAlways, StressOften, Sleep, HighBP, BPLow
+
+## 4.7. Stepwise logistic
+```{r}
+model <- glm(Diabetic ~., data = train.data, family = binomial)
+summary(model)
+coef(model)
+step.model <- model %>% stepAIC(trace = FALSE)
+coef(step.model)
+```
+
+```{r}
+best.aic <- glm(Diabetic~Family_Diabetes+Smoking+SoundSleep+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+Gender_M+PhysLow + PhysHigh + StressAlways+ BPHigh, data=train.data, family = binomial)
+summary(best.aic)
+```
+Compare the models
+```{r}
+# Make predictions
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+# Prediction accuracy
+observed.classes <- test.data$Diabetic
+mean(predicted.classes == observed.classes)
+```
+
+```{r}
+# Make predictions
+probabilities <- predict(step.model, test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1,0)
+# Prediction accuracy
+observed.classes <- test.data$Diabetic
+mean(predicted.classes == observed.classes)
+```
+
 
 # 5. Interpretation of the data
 How do we present our analysis: basically answer the questions we set in
