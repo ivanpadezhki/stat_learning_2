@@ -61,56 +61,69 @@ The next step in the analysis is to clean the variables. This includes the norma
 
 ```{r}
 # Copy data into a new variable to retain original data frame
-ds_fin <- ds
+ds_norm <- ds
 
 # Fixing variable name Pregancies
-ds_fin <- ds_fin %>% rename(Pregnancies=Pregancies)
+ds_norm <- ds_norm %>% rename(Pregnancies=Pregancies)
 
 #Fixing the variable Pdiabetes 
-ds_fin$Pdiabetes[ds_fin$Pdiabetes == ''] <- NA
-ds_fin$Pdiabetes[ds_fin$Pdiabetes == ' no'] <- 'no'
-ds_fin$Pdiabetes[ds_fin$Pdiabetes == '0'] <- 'no'
+ds_norm$Pdiabetes[ds_norm$Pdiabetes == ''] <- NA
+ds_norm$Pdiabetes[ds_norm$Pdiabetes == ' no'] <- 'no'
+ds_norm$Pdiabetes[ds_norm$Pdiabetes == '0'] <- 'no'
 
 #Fixing the variable Diabetic
-ds_fin$Diabetic[ds_fin$Diabetic == ' no'] <- 'no'
-ds_fin$Diabetic[ds_fin$Diabetic == ''] <- NA
+ds_norm$Diabetic[ds_norm$Diabetic == ' no'] <- 'no'
+ds_norm$Diabetic[ds_norm$Diabetic == ''] <- NA
 
 #Fixing the variable BPLevel
-ds_fin$BPLevel[ds_fin$BPLevel == 'High'] <- 'high'
-ds_fin$BPLevel[ds_fin$BPLevel == 'Low'] <- 'low'
-ds_fin$BPLevel[ds_fin$BPLevel == 'normal '] <- 'normal'
+ds_norm$BPLevel[ds_norm$BPLevel == 'High'] <- 'high'
+ds_norm$BPLevel[ds_norm$BPLevel == 'Low'] <- 'low'
+ds_norm$BPLevel[ds_norm$BPLevel == 'normal '] <- 'normal'
 
 # Fixing the variable RegularMedicine
-ds_fin$RegularMedicine[ds_fin$RegularMedicine == 'o'] <- 'no'
+ds_norm$RegularMedicine[ds_norm$RegularMedicine == 'o'] <- 'no'
 ```
 
 ## 2.2. Identifying Missing Values
 
-The whole data set contains 48 missing values and in light of the relatively large number of observations, the rows containing NA values will be removed from the data set prior to analysis. 
+The whole data set contains 47 missing values and in light of the relatively large number of observations, the rows containing NA values will be removed from the data set prior to analysis. 
 ```{r}
-sum(is.na(ds_fin)==TRUE)
+sum(is.na(ds_norm)==TRUE)
 ```
 Before removing the rows, we investigate the cases with missing values to identify potential patterns. In fact, most of the missing values are in the variable 'Pregnancies'. The research paper provides no explanation for the high number of NA's in this variable. Furthermore, the NA's are present for both female and male individuals, so there is not a reason to suspect a pattern. 
 ```{r}
-ds_fin[rowSums(is.na(ds_fin)) > 0, ]
+ds_norm[rowSums(is.na(ds_norm)) > 0, ]
 ```
+
 
 Next, the rows containing missing values are removed from the data set. 
 ```{r}
-ds_fin <- na.omit(ds_fin)
-ds_pre <- ds_fin
+ds_norm <- na.omit(ds_norm)
 ```
 However, besides two cases of NAs in the Pregnancies variable, all individuals with missing values belong to the group without diabetes. The following check shows not only that the output variable is unbalanced (this is discussed in detail further below), but also that most removed observations belong to the group without diabetes.
 
 ```{r}
-table(ds$Diabetic) - table(ds_fin$Diabetic)
+table(ds$Diabetic) - table(ds_norm$Diabetic)
+```
+## 2.3. Identifying weird observations
+A later check of the data led to the discovery of 12 individuals coded as "Male" who at the same time have a value larger than 0 for the variable Pregnancies. Since the chance of having 12 transgender men who have had 1 or more pregnancies in our data set are rather low, these observations are excluded from further analyses. 
+```{r}
+preg_male <- subset(ds_norm, Gender == 'Male' & Pregnancies != 0)
+# Take a closer look at the observations to potentially identify if it is a data entry mistake
+preg_male
+# exclude individuals from data set
+ds_pre<-ds_norm[!(ds_norm$Gender == 'Male' & ds_norm$Pregnancies != 0),]
+sum(is.na(ds_pre)==TRUE)
 ```
 
-## 2.3.  Turning categorical variables into single-level dummies
 
-An important step of the preparation of the data for following analyses is the transformation of categorical variables into dummies. Binary variables with yes/no as levels are coded as 1 versus 0. For variables with more than two levels, the lowest level is taken as baseline and the rest are contrasted with it. The reason for this choice of dummy coding is that none of the categorical variables are nominally scaled, rather they are ordinal variables without measurable distances between different levels. Therefore, coding them as numerical variables is not appropriate. The end result is a data set containing 26 predictor variables. 
+## 2.4.  Turning categorical variables into single-level dummies
+
+An important step of the preparation of the data for following analyses is the transformation of categorical variables into dummies. Binary variables with yes/no as levels are coded as 1 versus 0. For variables with more than two levels, the lowest level is taken as baseline and the rest are contrasted with it. The reason for this choice of dummy coding is that none of the categorical variables are nominally scaled, rather they are ordinal variables without measurable distances between different levels. Therefore, coding them as numerical variables is not appropriate. 
 
 ```{r}
+# Keep ds_pre for creating labeled plots easier later
+ds_fin <- ds_pre
 # Variable AGE - has 4 levels, cast into 3 dummy variables with baseline <40 yo
 ds_fin$Age40_49 <- ifelse(ds_fin$Age == "40-49", 1, 0)
 ds_fin$Age50_59 <- ifelse(ds_fin$Age == "50-59", 1, 0)
@@ -185,6 +198,13 @@ An important question is whether the outcome variable is balanced. In the curren
 ```{r}
 table(ds_fin$Diabetic)
 ```
+
+Finally, the data set contains 893 observations with 26 predictor variables and one outcome variable. 
+```{r}
+dim(ds_fin)
+```
+
+
 # 3. Data Exploration
 
 ```{r}
@@ -201,6 +221,16 @@ table(ds_fin$Diabetic)
 #   geom_bar(fill='blue') +  labs(x='Blood Pressure Level')
 ```
 
+
+```{r}
+
+ggplot(ds_pre, aes(x=Gender, y=Pregnancies, fill = Pdiabetes)) + 
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato") + 
+  labs(x = "Gender", y = "Pregnancies", title = "Number of Pregnancies by Gender")
+```
+
+
 First, the distributions of the numerical variables are evaluated
 
 ```{r}
@@ -211,8 +241,8 @@ hist_sleep <- ggplot(ds_fin, aes(x=Sleep)) +
   geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Hours of Sleep")
 hist_soundsl <- ggplot(ds_fin, aes(x=SoundSleep)) + 
   geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Hours of Sound Sleep")
-hist_preg <- ggplot(ds_fin, aes(x=Pregnancies)) + 
-  geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Number of Pregnancies")
+hist_preg <- ggplot(ds_fin[ds_fin$Gender_M!=1,], aes(x=Pregnancies)) + 
+  geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Pregnancies (Women)")
 grid.arrange(hist_bmi, hist_sleep, hist_soundsl, hist_preg, ncol = 4, top=textGrob("Histograms of Numerical Variables"))
 ```
 
@@ -235,7 +265,7 @@ grid.arrange(box_bmi, box_sleep, box_ssleep, ncol = 3, top=textGrob("Boxplots of
 ```
 And the relationship between Diabetes, Pregnancies and Gestational Diabetes is inspected. It seems like the number of pregnancies increases the chance of Gestational Diabetes. 
 ```{r}
-ggplot(ds_pre, aes(x=Pdiabetes, y=Pregnancies, fill = Diabetic)) + 
+ggplot(ds_pre[ds_pre$Gender=='Female',], aes(x=Pdiabetes, y=Pregnancies, fill = Diabetic)) + 
     geom_boxplot() + labs(x = "Gestational Diabetes", y = "Pregnancies", title = "Number of Pregnancies by Diebetes and Gestational Diabetes")
 ```
 
@@ -319,7 +349,7 @@ corr[lower.tri(corr,diag=TRUE)] <- NA
 #plot correlations visually
 corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
 ```
-This correlation plot is in fact better, we also have access to the currelation coefficients. 
+This correlation plot is in fact better, we also have access to the correlation coefficients. 
 ```{r}
 library(ggcorrplot)
 model.matrix(~0+., data=ds_fin) %>% 
