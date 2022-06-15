@@ -37,7 +37,6 @@ The data set chosen for the current project concerns a study on Diabetes. The re
 
 Read in data directly from GitHub
 ```{r}
-library(readr)
 ds <- read_csv("https://raw.githubusercontent.com/ivanpadezhki/stat_learning_2/master/data/diabetes_dataset__2019.csv?token=GHSAT0AAAAAABTXCTNAD4HUUN5MUAT2TSDEYU6D7XA")
 
 ```
@@ -208,26 +207,22 @@ dim(ds_fin)
 # 3. Data Exploration
 
 ```{r}
-# ggplot(ds, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
-#   geom_bar(fill='red') +  labs(x='Age')
-# ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
-#   geom_bar(fill='green') +  labs(x='Gender')
-# ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
-#   geom_bar(fill='green') +  labs(x='Family Diabetes')
-# 
-# ggplot(ds, aes(x=reorder(highBP, highBP, function(x)-length(x)))) + 
-#   geom_bar(fill='blue') +  labs(x='High Blood Pressure')
-# ggplot(ds, aes(x=reorder(BPLevel, BPLevel, function(x)-length(x)))) + 
-#   geom_bar(fill='blue') +  labs(x='Blood Pressure Level')
+bar_age <- ggplot(ds_pre, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
+   geom_bar(fill='red') +  labs(x='Age')
+bar_gender <- ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
+   geom_bar(fill='red') +  labs(x='Gender')
+bar_familyd <- ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
+   geom_bar(fill='red') +  labs(x='Family Diabetes')
+grid.arrange(bar_age, bar_gender, bar_familyd, ncol = 3, top=textGrob("Barplots of First Group of Categorical Variables"))
 ```
 
 
 ```{r}
-
-ggplot(ds_pre, aes(x=Gender, y=Pregnancies, fill = Pdiabetes)) + 
+gender_f <- ds_pre[ds_pre$Gender=='Female',]
+ggplot(gender_f, aes(x=Diabetic, y=Pregnancies, fill = Pdiabetes)) + 
   geom_boxplot() + 
   geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato") + 
-  labs(x = "Gender", y = "Pregnancies", title = "Number of Pregnancies by Gender")
+  labs(x = "Diabetes", y = "Pregnancies", title = "Diabetes by Gestational Diabetes and Number of Pregnancies")
 ```
 
 
@@ -254,19 +249,73 @@ ggplot(ds_pre, aes(x=Sleep, y=SoundSleep, shape = Diabetic, color = Diabetic)) +
 
 Furthermore, the relationship of the numerical variables with the outcome variable is explored. There doesn't seem to be a reason to expect large differences in the outcome variable based on the three numerical variables studied below. 
 ```{r}
-#Is BMI connected to diabetes? 
 box_bmi <- ggplot(ds_pre, aes(x=Diabetic, y=BMI)) + 
-    geom_boxplot()
+    geom_boxplot() +
+  geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato")
 box_sleep <- ggplot(ds_pre, aes(x=Diabetic, y=Sleep)) + 
-    geom_boxplot()
+    geom_boxplot() + 
+  geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato")
 box_ssleep <- ggplot(ds_pre, aes(x=Diabetic, y=SoundSleep)) + 
-    geom_boxplot()
+    geom_boxplot() +
+  geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato")
 grid.arrange(box_bmi, box_sleep, box_ssleep, ncol = 3, top=textGrob("Boxplots of Numerical Variables"))
 ```
-And the relationship between Diabetes, Pregnancies and Gestational Diabetes is inspected. It seems like the number of pregnancies increases the chance of Gestational Diabetes. 
+
+Next, we inspect the categorical variables and their relationships. 
+
 ```{r}
-ggplot(ds_pre[ds_pre$Gender=='Female',], aes(x=Pdiabetes, y=Pregnancies, fill = Diabetic)) + 
-    geom_boxplot() + labs(x = "Gestational Diabetes", y = "Pregnancies", title = "Number of Pregnancies by Diebetes and Gestational Diabetes")
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+```
+
+```{r, echo = False}
+# build plots
+bar_smoking <- ggplot(data = ds_pre, aes(x = Smoking, fill = Diabetic)) +
+    geom_bar() + theme(legend.position = "none")
+bar_alc <- ggplot(data = ds_pre, aes(x = Alcohol, fill = Diabetic)) +
+    geom_bar() + theme(legend.position = "none")
+bar_med <- ggplot(data = ds_pre, aes(x = RegularMedicine, fill = Diabetic)) +
+  geom_bar()
+# get legend
+legend <- get_legend(bar_med)
+# delete legend from past plot
+bar_med <- bar_med + theme(legend.position="none")
+grid.arrange(bar_smoking, bar_alc, bar_med, legend, ncol = 3, top=textGrob("Bar Plots of Categorical Variables"))
+
+```
+
+```{r}
+# build plots
+bar_ <- ggplot(data = ds_pre, aes(x = JunkFood, fill = Diabetic)) +
+    geom_bar() + theme(legend.position = "none")
+bar_act <- ggplot(data = ds_pre, aes(x = PhysicallyActive, fill = Diabetic)) +
+    geom_bar() + theme(legend.position = "none")
+bar_stress <- ggplot(data = ds_pre, aes(x = Stress, fill = Diabetic)) +
+  geom_bar()
+# get legend
+legend <- get_legend(bar_stress)
+# delete legend from past plot
+bar_stress <- bar_stress + theme(legend.position="none")
+grid.arrange(bar_junk, bar_act, bar_stress, legend, ncol = 3, top=textGrob("Bar plots of categorical Variables"))
+
+```
+```{r}
+# build plots
+bar_urin <- ggplot(data = ds_pre, aes(x = UriationFreq, fill = Diabetic)) +
+    geom_bar() + theme(legend.position = "none")
+bar_bplev <- ggplot(data = ds_pre, aes(x = BPLevel, fill = Diabetic)) +
+    geom_bar() + theme(legend.position = "none")
+bar_highbp <- ggplot(data = ds_pre, aes(x = highBP, fill = Diabetic)) +
+  geom_bar() 
+# get legend
+legend <- get_legend(bar_highbp)
+# delete legend from past plot
+bar_highbp <- bar_highbp + theme(legend.position="none")
+grid.arrange(bar_urin, bar_bplev, bar_highbp, legend, ncol = 3, top=textGrob("Bar plots of categorical Variables"))
 ```
 
 GUYS, I am not sure if we need this deep dive into BMI?? 
@@ -303,41 +352,6 @@ gender_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Gender_M))
 names(gender_df) <- c("Diabetic","Gender","Count")
 
 ggplot(data=gender_df, aes(x=Diabetic, y=Count, fill=Gender, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-alcohol_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Alcohol))
-names(alcohol_df) <- c("Diabetic","Alcohol","Count")
-
-ggplot(data=alcohol_df, aes(x=Diabetic, y=Count, fill=Alcohol, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-smoking_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Smoking))
-names(smoking_df) <- c("Diabetic","Smoking","Count")
-
-ggplot(data=smoking_df, aes(x=Diabetic, y=Count, fill=Smoking, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-family_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Family_Diabetes))
-names(family_df) <- c("Diabetic","FamilyDiabetes","Count")
-
-ggplot(data=family_df, aes(x=Diabetic, y=Count, fill=FamilyDiabetes, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-highBP_df <- data.frame(table(ds_fin$Diabetic,ds_fin$highBP))
-names(highBP_df) <- c("Diabetic","HighBP","Count")
-
-ggplot(data=highBP_df, aes(x=Diabetic, y=Count, fill=HighBP, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-RegularMedicine_df <- data.frame(table(ds_fin$Diabetic,ds_fin$RegularMedicine))
-names(RegularMedicine_df) <- c("Diabetic","RegularMedicine","Count")
-
-ggplot(data=RegularMedicine_df, aes(x=Diabetic, y=Count, fill=RegularMedicine, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-UriationFreq_df <- data.frame(table(ds_fin$Diabetic,ds_fin$UriationFreq))
-names(UriationFreq_df) <- c("Diabetic","UriationFreq","Count")
-
-ggplot(data=UriationFreq_df, aes(x=Diabetic, y=Count, fill=UriationFreq, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-
-Pdiabetes_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Pdiabetes))
-names(Pdiabetes_df) <- c("Diabetic","Pdiabetes","Count")
-
-ggplot(data=Pdiabetes_df, aes(x=Diabetic, y=Count, fill=Pdiabetes, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
 ```
 
 
@@ -762,7 +776,7 @@ make them accessible - tell a story.
 Compare probability between age groups for diabetes
 
 ```{r}
-aov_age <- aov(ds_fin$Diabetic~ds_fin$Age)
+aov_age <- aov(ds_fin$Diabetic~ds_pre$Age)
 tukey_age <- TukeyHSD(aov_age)
 plot(tukey_age)
 ```
