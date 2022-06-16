@@ -27,6 +27,7 @@ library(readr)
 library(glmnet)
 library(gridExtra) 
 library(grid)
+library(stringr)  
 ```
 
 # 1. Input of data
@@ -38,7 +39,6 @@ The data set chosen for the current project concerns a study on Diabetes. The re
 Read in data directly from GitHub
 ```{r}
 ds <- read_csv("https://raw.githubusercontent.com/ivanpadezhki/stat_learning_2/master/data/diabetes_dataset__2019.csv?token=GHSAT0AAAAAABTXCTNAD4HUUN5MUAT2TSDEYU6D7XA")
-
 ```
 The data set contains 18 columns - 17 predictor variables and one outcome variable. After taking an initial look at the structure of the data frame, it is visible that most of the variables are categorical and only few predictors have numerical values. The outcome variable is binary and describes whether the individual observation is a case of diabetes or not. 
 ```{r}
@@ -208,7 +208,9 @@ dim(ds_fin)
 
 ```{r}
 bar_age <- ggplot(ds_pre, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
-   geom_bar(fill='red') +  labs(x='Age')
+   geom_bar(fill='red') +  labs(x='Age') + 
+  scale_x_discrete(labels=c("less than 40" = "< 40", "40-49" = "40-49",
+                              "50-59" = "40-49", "60 or older" = ">60"))
 bar_gender <- ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
    geom_bar(fill='red') +  labs(x='Gender')
 bar_familyd <- ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
@@ -274,24 +276,60 @@ get_legend<-function(myggplot){
 
 ```{r, echo = False}
 # build plots
-bar_smoking <- ggplot(data = ds_pre, aes(x = Smoking, fill = Diabetic)) +
+bar_smoking <- ggplot(data = ds_pre, aes(x = Smoking)) +
     geom_bar() + theme(legend.position = "none")
-bar_alc <- ggplot(data = ds_pre, aes(x = Alcohol, fill = Diabetic)) +
+bar_alc <- ggplot(data = ds_pre, aes(x = Alcohol)) +
     geom_bar() + theme(legend.position = "none")
-bar_med <- ggplot(data = ds_pre, aes(x = RegularMedicine, fill = Diabetic)) +
-  geom_bar()
+bar_med <- ggplot(data = ds_pre, aes(x = RegularMedicine)) +
+  geom_bar() + theme(legend.position="none")
+# reorder Stress levels
+ds_pre$Stress <- factor(ds_pre$Stress,levels = c("not at all", "sometimes", "very often", "always"))
+# plot Stress
+bar_stress <- ggplot(data = ds_pre, aes(x = Stress)) +
+  geom_bar() + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  scale_x_discrete(labels=c("not at all" = "none.", "sometimes" = "somet.",
+                              "very often" = "v. often", "always" = "alw."))
+
+# reorder levels of JunkFood
+ds_pre$JunkFood <- factor(ds_pre$JunkFood,levels = c("occasionally", "often", "very often", "always"))
+bar_junk <- ggplot(data = ds_pre, aes(x = JunkFood)) +
+    geom_bar() + theme(legend.position = "none", axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+   scale_x_discrete(labels=c("occasionally" = "occas.", "often" = "often",
+                              "very often" = "v. often", "always" = "alw."))
+
+# reorder levels of Physical Activity
+ds_pre$PhysicallyActive <- factor(ds_pre$PhysicallyActive,levels = c("none", "less than half an hr", "more than half an hr", "one hr or more"))
+# plot physical activity 
+bar_act <- ggplot(data = ds_pre, aes(x = PhysicallyActive)) +
+    geom_bar() + theme(legend.position = "none", axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  scale_x_discrete(labels=c("none" = "none", "less than half an hr" = "<30 m",
+                              "more than half an hr" = ">30 m", "one hr or more" = ">1 hr"))
+
+bar_urin <- ggplot(data = ds_pre, aes(x = UriationFreq)) +
+    geom_bar() + theme(legend.position = "none")
+# reorder BPlevel to be low, normal, high
+ds_pre$BPLevel <- factor(ds_pre$BPLevel,levels = c("low", "normal", "high"))
+# plot BPLevel 
+bar_bplev <- ggplot(data = ds_pre, aes(x = BPLevel)) +
+    geom_bar() + theme(legend.position="none")
+bar_highbp <- ggplot(data = ds_pre, aes(x = highBP)) +
+  geom_bar() + theme(legend.position="none")
 # get legend
-legend <- get_legend(bar_med)
+#legend <- get_legend(bar_med)
 # delete legend from past plot
-bar_med <- bar_med + theme(legend.position="none")
-grid.arrange(bar_smoking, bar_alc, bar_med, legend, ncol = 3, top=textGrob("Bar Plots of Categorical Variables"))
+#bar_med <- bar_med + theme(legend.position="none")
+# Plot first group 
+grid.arrange(bar_smoking, bar_alc, bar_med, bar_urin, bar_bplev, bar_highbp, ncol = 3, top=textGrob("Bar Plots of Categorical Variables"))
+# plot second group
+grid.arrange(bar_junk, bar_act, bar_stress, ncol = 3, top=textGrob("Bar Plots of Categorical Variables"))
 
 ```
-
+Create proportional plots for relevant variables and their relationship with the outcome variable. 
 ```{r}
 # build plots
-bar_ <- ggplot(data = ds_pre, aes(x = JunkFood, fill = Diabetic)) +
-    geom_bar() + theme(legend.position = "none")
+bar_junk <- ggplot(data = ds_pre, aes(x = JunkFood, fill = Diabetic)) +
+    geom_bar(position = 'fill') + theme(legend.position = "none") + labs(y = "Proportion")
 bar_act <- ggplot(data = ds_pre, aes(x = PhysicallyActive, fill = Diabetic)) +
     geom_bar() + theme(legend.position = "none")
 bar_stress <- ggplot(data = ds_pre, aes(x = Stress, fill = Diabetic)) +
@@ -308,14 +346,14 @@ grid.arrange(bar_junk, bar_act, bar_stress, legend, ncol = 3, top=textGrob("Bar 
 bar_urin <- ggplot(data = ds_pre, aes(x = UriationFreq, fill = Diabetic)) +
     geom_bar() + theme(legend.position = "none")
 bar_bplev <- ggplot(data = ds_pre, aes(x = BPLevel, fill = Diabetic)) +
-    geom_bar() + theme(legend.position = "none")
+    geom_bar(position = 'fill') + theme(legend.position="none")
 bar_highbp <- ggplot(data = ds_pre, aes(x = highBP, fill = Diabetic)) +
-  geom_bar() 
+  geom_bar(position = 'fill') 
 # get legend
-legend <- get_legend(bar_highbp)
+#legend <- get_legend(bar_highbp)
 # delete legend from past plot
-bar_highbp <- bar_highbp + theme(legend.position="none")
-grid.arrange(bar_urin, bar_bplev, bar_highbp, legend, ncol = 3, top=textGrob("Bar plots of categorical Variables"))
+#bar_highbp <- bar_highbp + theme(legend.position="none")
+grid.arrange(bar_urin, bar_bplev, bar_highbp, ncol = 3, top=textGrob("Bar plots of categorical Variables"))
 ```
 
 GUYS, I am not sure if we need this deep dive into BMI?? 
@@ -332,7 +370,7 @@ boxplot(BMI~Alcohol, data = ds_fin, main = "BMI of alcohol and non-alcohol subje
 boxplot(BMI~Gender_M, data = ds_fin, main = "BMI of Male and Female subjects",ylab = "BMI",names = c("Female", "Male"))
 
 # BMI and Smoking
-boxplot(BMI~Smoking, data = ds_fin, main = "BMI of Smoker and Non-Smoker subjects",ylab = "BMI",names = c("Non-Smoker", "Smoker"))
+boxplot(~Smoking, data = ds_fin, main = "BMI of Smoker and Non-Smoker subjects",ylab = "BMI",names = c("Non-Smoker", "Smoker"))
 
 boxplot(BMI~Family_Diabetes, data = ds_fin, main = "BMI of Family_Diabetes subjects",ylab = "BMI",names = c("Have Not", "Have"))
 
