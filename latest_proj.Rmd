@@ -1,7 +1,8 @@
 ---
-title: "FINAL_stat"
-author: "ET"
-date: "06/06/2022"
+title: "Statistical Learning B: Final Project"
+subtitle: "Diabetes Type II Prediction and Classification"
+author: "Berke Furkan Kusmenoglu, Ivan Dragomirov Padezhki, Elisa Tremolada"
+date: "17/06/2022"
 output: html_document
 ---
 
@@ -10,12 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Libraries
-Import necessary libraries for the analysis. 
-```{r, label= 'libraries', include=FALSE}
+
+Import necessary libraries for the analysis.
+
+```{r, label= 'libraries', message = FALSE}
 library(tidyverse)
 library(MASS)
 library(caret)
-library(smotefamily)
 library(ggplot2)
 library(corrplot)
 library(ggcorrplot)
@@ -27,102 +29,111 @@ library(readr)
 library(glmnet)
 library(gridExtra) 
 library(grid)
-library(stringr)  
+library(car)
+library(ROCR)
 ```
 
-# 1. Input of data
+# 1 Dataset
 
-## 1.1. Dataset Breast Cancer
-The data set chosen for the current project concerns a study on Diabetes. The related article is Tigga, N. P., & Garg, S. (2020). Prediction of Type 2 Diabetes using Machine Learning Classification Methods. Procedia Computer Science, 167, 706-716. DOI: https://doi.org/10.1016/j.procs.2020.03.336 and the data set can be found at <https://www.kaggle.com/datasets/tigganeha4/diabetes-dataset-2019>, which was first accessed on 30/05/2022.
+## 1.1 Introduction
 
+The data set chosen for the current project is related to a paper exploring the connection between lifestyle, family history and Type 2 diabetes in the Indian population. The related article is Tigga, N. P., & Garg, S. (2020). Prediction of Type 2 Diabetes using Machine Learning Classification Methods. Procedia Computer Science, 167, 706-716. DOI: <https://doi.org/10.1016/j.procs.2020.03.336>. The data set can be found at <https://www.kaggle.com/datasets/tigganeha4/diabetes-dataset-2019> and was first accessed on 30/05/2022.
 
-Read in data directly from GitHub
+## 1.2 Importing the data
+
 ```{r}
+library(readr)
 ds <- read_csv("https://raw.githubusercontent.com/ivanpadezhki/stat_learning_2/master/data/diabetes_dataset__2019.csv?token=GHSAT0AAAAAABTXCTNAD4HUUN5MUAT2TSDEYU6D7XA")
-```
-The data set contains 18 columns - 17 predictor variables and one outcome variable. After taking an initial look at the structure of the data frame, it is visible that most of the variables are categorical and only few predictors have numerical values. The outcome variable is binary and describes whether the individual observation is a case of diabetes or not. 
-```{r}
-ds[1:5,]
+
 ```
 
-Furthermore, an inspection of the unique values for all variables shows that some categorical variables (BPLevel, Pdiabetes, Diabetes) have received different codes for the same levels (e.g. some are lowercase, others start with a capital letter or for example some have spaces). On the other hand, the numerical variables are BMI, Sleep and SoundSleep. BMI is ranging from 15 to 45 with a mean of 25.764 and standard deviation 5.403. The variable Sleep measures the number of hour per night, and ranges from 4 to 11 hours (\mu = 6.95, std = 1.273). The last numerical variable is SoundSleep, which is in a range between 0 and 11 hours per night (mean = 5.496, standard deviation = 1.866). 
+## 1.3 Data preprocessing
+
+From a preliminary inspection we find three variables ('BPLevel', 'Pdiabetes', 'Diabetes') have received different codes for the same levels (e.g. some are lowercase, others start with a capital letter).
+
+Moreover, we report below all levels for each variables, which will be useful to transform them into binary variables.
+
 ```{r}
-for(i in 1:ncol(ds)) {       # for-loop over columns
+for(i in 1:ncol(ds)) {       
   print(lapply(ds[i], unique))
 }
 ```
 
-The next step in the analysis is to clean the variables. This includes the normalization of the value labels for some variables, as well as the transformation of categorical variables into dummies (e.g. for "Age", base-level will be "less than 40", then we will have 3 dummies for each of the levels specified). 
-
-# 2. Data cleaning
-
-## 2.1. Normalizing value names 
+### 1.3.1 Normalization of value labels
 
 ```{r}
 # Copy data into a new variable to retain original data frame
-ds_norm <- ds
+ds_fin <- ds
 
 # Fixing variable name Pregancies
-ds_norm <- ds_norm %>% rename(Pregnancies=Pregancies)
+ds_fin <- ds_fin %>% rename(Pregnancies=Pregancies)
 
 #Fixing the variable Pdiabetes 
-ds_norm$Pdiabetes[ds_norm$Pdiabetes == ''] <- NA
-ds_norm$Pdiabetes[ds_norm$Pdiabetes == ' no'] <- 'no'
-ds_norm$Pdiabetes[ds_norm$Pdiabetes == '0'] <- 'no'
+ds_fin$Pdiabetes[ds_fin$Pdiabetes == ''] <- NA
+ds_fin$Pdiabetes[ds_fin$Pdiabetes == ' no'] <- 'no'
+ds_fin$Pdiabetes[ds_fin$Pdiabetes == '0'] <- 'no'
 
 #Fixing the variable Diabetic
-ds_norm$Diabetic[ds_norm$Diabetic == ' no'] <- 'no'
-ds_norm$Diabetic[ds_norm$Diabetic == ''] <- NA
+ds_fin$Diabetic[ds_fin$Diabetic == ' no'] <- 'no'
+ds_fin$Diabetic[ds_fin$Diabetic == ''] <- NA
 
 #Fixing the variable BPLevel
-ds_norm$BPLevel[ds_norm$BPLevel == 'High'] <- 'high'
-ds_norm$BPLevel[ds_norm$BPLevel == 'Low'] <- 'low'
-ds_norm$BPLevel[ds_norm$BPLevel == 'normal '] <- 'normal'
+ds_fin$BPLevel[ds_fin$BPLevel == 'High'] <- 'high'
+ds_fin$BPLevel[ds_fin$BPLevel == 'Low'] <- 'low'
+ds_fin$BPLevel[ds_fin$BPLevel == 'normal '] <- 'normal'
 
 # Fixing the variable RegularMedicine
-ds_norm$RegularMedicine[ds_norm$RegularMedicine == 'o'] <- 'no'
+ds_fin$RegularMedicine[ds_fin$RegularMedicine == 'o'] <- 'no'
 ```
 
-## 2.2. Identifying Missing Values
+### 1.3.2 Identifying Missing Values
 
-The whole data set contains 47 missing values and in light of the relatively large number of observations, the rows containing NA values will be removed from the data set prior to analysis. 
-```{r}
-sum(is.na(ds_norm)==TRUE)
-```
-Before removing the rows, we investigate the cases with missing values to identify potential patterns. In fact, most of the missing values are in the variable 'Pregnancies'. The research paper provides no explanation for the high number of NA's in this variable. Furthermore, the NA's are present for both female and male individuals, so there is not a reason to suspect a pattern. 
-```{r}
-ds_norm[rowSums(is.na(ds_norm)) > 0, ]
-```
-
-
-Next, the rows containing missing values are removed from the data set. 
-```{r}
-ds_norm <- na.omit(ds_norm)
-```
-However, besides two cases of NAs in the Pregnancies variable, all individuals with missing values belong to the group without diabetes. The following check shows not only that the output variable is unbalanced (this is discussed in detail further below), but also that most removed observations belong to the group without diabetes.
+The whole data set contains 48 missing values; in light of the relatively large number of observations (952), the rows containing NA values will be removed from the data set prior to analysis.
 
 ```{r}
-table(ds$Diabetic) - table(ds_norm$Diabetic)
+sum(is.na(ds_fin)==TRUE)
+
 ```
-## 2.3. Identifying weird observations
-A later check of the data led to the discovery of 12 individuals coded as "Male" who at the same time have a value larger than 0 for the variable Pregnancies. Since the chance of having 12 transgender men who have had 1 or more pregnancies in our data set are rather low, these observations are excluded from further analyses. 
+
+First, we investigate the rows with missing values to identify potential patterns.
+
+In fact, most of the missing values are in the variable 'Pregnancies'. The research paper provides no explanation for the high number of NAs in this variable. Furthermore, the NAs are present for both female and male individuals, so there is not a reason to suspect a pattern.
+
+Thus, the rows containing missing values are removed from the data set.
+
 ```{r}
-preg_male <- subset(ds_norm, Gender == 'Male' & Pregnancies != 0)
+ds_fin[rowSums(is.na(ds_fin)) > 0, ]
+ds_fin <- na.omit(ds_fin)
+```
+
+#### 1.3.2.1 Identifying weird observations
+
+A later check of the data led to the discovery of 12 individuals coded as "Male" who at the same time have a value larger than 0 for the variable Pregnancies. Since the chance of having 12 transgender men who have had 1 or more pregnancies in our data set are rather low, these observations are excluded from further analyses.
+
+```{r}
+preg_male <- subset(ds_fin, Gender == 'Male' & Pregnancies != 0)
 # Take a closer look at the observations to potentially identify if it is a data entry mistake
 preg_male
 # exclude individuals from data set
-ds_pre<-ds_norm[!(ds_norm$Gender == 'Male' & ds_norm$Pregnancies != 0),]
-sum(is.na(ds_pre)==TRUE)
+ds_fin <- ds_fin[!(ds_fin$Gender == 'Male' & ds_fin$Pregnancies != 0),]
 ```
 
+### 1.3.3 Turning categorical variables into dummy variables
 
-## 2.4.  Turning categorical variables into single-level dummies
+Binary variables with yes/no as levels are coded as 1 versus 0.
 
-An important step of the preparation of the data for following analyses is the transformation of categorical variables into dummies. Binary variables with yes/no as levels are coded as 1 versus 0. For variables with more than two levels, the lowest level is taken as baseline and the rest are contrasted with it. The reason for this choice of dummy coding is that none of the categorical variables are nominally scaled, rather they are ordinal variables without measurable distances between different levels. Therefore, coding them as numerical variables is not appropriate. 
+For variables with more than two levels, the lowest level is taken as baseline and the rest are contrasted with it.
+
+The reason for this choice of dummy coding is that none of the categorical variables are nominally scaled, rather they are ordinal variables without measurable distances between different levels. Therefore, coding them as numerical variables is not appropriate.
+
+The end result is a data set containing 26 predictor variables.
 
 ```{r}
+
 # Keep ds_pre for creating labeled plots easier later
-ds_fin <- ds_pre
+ds_pre <- ds_fin
+
+
 # Variable AGE - has 4 levels, cast into 3 dummy variables with baseline <40 yo
 ds_fin$Age40_49 <- ifelse(ds_fin$Age == "40-49", 1, 0)
 ds_fin$Age50_59 <- ifelse(ds_fin$Age == "50-59", 1, 0)
@@ -145,6 +156,12 @@ ds_fin$PhysLow <- ifelse(ds_fin$PhysicallyActive == "less than half an hr", 1, 0
 ds_fin$PhysMid <- ifelse(ds_fin$PhysicallyActive == "more than half an hr", 1, 0)
 ds_fin$PhysHigh <- ifelse(ds_fin$PhysicallyActive == "one hr or more", 1, 0)
 ds_fin$PhysicallyActive <- NULL 
+
+#Vairable BMI: we know from the paper underlying the dataset that having a BMI>25 is considered an 
+#important risk factor for developing diabetes. Hence, we turn BMI into a dummy variable,
+# taking value=0 when the subject has BMI < 25 and value 1 when BMI >= 25. 
+
+ds_fin$BMI <- ifelse(ds_fin$BMI >= 25, 1, 0)
 
 # Variable Smoking - has two levels (yes/no)
 ds_fin$Smoking <- ifelse(ds_fin$Smoking == "yes", 1, 0)
@@ -182,57 +199,53 @@ ds_fin$UriationFreq <- ifelse(ds_fin$UriationFreq == "quite often", 1, 0)
 ds_fin$Diabetic <- ifelse(ds_fin$Diabetic == "yes", 1, 0)
 ```
 
-Perform a check of the transformation. 
+Finally, we perform a check of the transformation.
+
 ```{r}
-# returns an output only if a certain variable is not numeric
-for(i in 1:ncol(ds_fin)) {       # for-loop over columns
+# this for-loop returns an output only if a certain variable is not numeric
+
+for(i in 1:ncol(ds_fin)) {       
   if (lapply(ds_fin[1], class) != 'numeric'){
     print(lapply(ds_fin[i], class))
   }
 }
 ```
 
-An important question is whether the outcome variable is balanced. In the current data set, there are more than two times more individuals do not have diabetes in the current data set, meaning that people with diabetes are a minority class. Since this is not a large imbalance, the analyses will be performed without any data up/ or down-sampling. However, due to the fact that logistic regression is not well fit for imbalanced data, the development of this problem will be monitored throughout the analysis, especially in the diagnosis of the model.
+### 1.3.4 Checking numerical variables
+
+We investigate numerical variables BMI, Sleep and SoundSleep means and standard deviations ['BMI': \mu = 25.764, std = 5.403; 'Sleep' (\mu = 6.957, std = 1.273); 'SoundSleep' (\mu = 5.547, std = 1.871)]. However, we will use logistic regression, so we do not need to standardize these variables.
+
+```{r}
+mean(ds_pre$BMI)
+sd(ds_pre$BMI)
+
+mean(ds_fin$Sleep)
+sd(ds_fin$Sleep)
+
+mean(ds_fin$SoundSleep)
+sd(ds_fin$SoundSleep)
+
+```
+
+## 1.4 Exploratory Data Analysis: Graphical EDA
+
+An important question is whether the outcome variable is balanced. In the current data set, our class of interest (diabetic subjects) has less than half the observations with respect to non-diabetic subjects.
+
+Since this is not a large imbalance, the analyses will be performed without any data over/undersampling.
+
+However, the development of this problem will be monitored throughout the analysis, especially in the diagnosis of the model.
 
 ```{r}
 table(ds_fin$Diabetic)
 ```
 
-Finally, the data set contains 893 observations with 26 predictor variables and one outcome variable. 
-```{r}
-dim(ds_fin)
-```
+In this section we produce some plots, with the intention of better understanding the distribution of the predictor variables in our dataset - both with respect to each other and with respect to the output variable "Diabetic".
 
-
-# 3. Data Exploration
-
-```{r}
-bar_age <- ggplot(ds_pre, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
-   geom_bar(fill='red') +  labs(x='Age') + 
-  scale_x_discrete(labels=c("less than 40" = "< 40", "40-49" = "40-49",
-                              "50-59" = "40-49", "60 or older" = ">60"))
-bar_gender <- ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
-   geom_bar(fill='red') +  labs(x='Gender')
-bar_familyd <- ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
-   geom_bar(fill='red') +  labs(x='Family Diabetes')
-grid.arrange(bar_age, bar_gender, bar_familyd, ncol = 3, top=textGrob("Barplots of First Group of Categorical Variables"))
-```
-
-
-```{r}
-gender_f <- ds_pre[ds_pre$Gender=='Female',]
-ggplot(gender_f, aes(x=Diabetic, y=Pregnancies, fill = Pdiabetes)) + 
-  geom_boxplot() + 
-  geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato") + 
-  labs(x = "Diabetes", y = "Pregnancies", title = "Diabetes by Gestational Diabetes and Number of Pregnancies")
-```
-
-
-First, the distributions of the numerical variables are evaluated
+### 1.4.1 Numerical Variables
 
 ```{r}
 # histogram of numerical variables
-hist_bmi <- ggplot(ds_fin, aes(x=BMI)) + 
+hist_bmi <- ggplot(ds_pre, aes(x=BMI)) + 
   geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "BMI")
 hist_sleep <- ggplot(ds_fin, aes(x=Sleep)) + 
   geom_histogram(color="black", fill="white", binwidth = 0.9) + labs(x = "Hours of Sleep")
@@ -243,13 +256,8 @@ hist_preg <- ggplot(ds_fin[ds_fin$Gender_M!=1,], aes(x=Pregnancies)) +
 grid.arrange(hist_bmi, hist_sleep, hist_soundsl, hist_preg, ncol = 4, top=textGrob("Histograms of Numerical Variables"))
 ```
 
-Additionally, the relationship between Sleep and Sound Sleep is evaluated. There seems to be reason to suspect possible interaction between the two variables, potentially due to correlation. For this reason, in a future model we will consider excluding one of the two variables. 
-```{r}
-ggplot(ds_pre, aes(x=Sleep, y=SoundSleep, shape = Diabetic, color = Diabetic)) + geom_point() +
-  geom_smooth(method=lm, level=0.95) + labs(y = "Hours of Sound Sleep", title = "Scatter Plot of Sleep and Sound Sleep")
-```
+Furthermore, the relationship of the numerical variables with the outcome variable is explored. There doesn't seem to be a reason to expect large differences in the outcome variable based on the three numerical variables studied below.
 
-Furthermore, the relationship of the numerical variables with the outcome variable is explored. There doesn't seem to be a reason to expect large differences in the outcome variable based on the three numerical variables studied below. 
 ```{r}
 box_bmi <- ggplot(ds_pre, aes(x=Diabetic, y=BMI)) + 
     geom_boxplot() +
@@ -263,7 +271,19 @@ box_ssleep <- ggplot(ds_pre, aes(x=Diabetic, y=SoundSleep)) +
 grid.arrange(box_bmi, box_sleep, box_ssleep, ncol = 3, top=textGrob("Boxplots of Numerical Variables"))
 ```
 
-Next, we inspect the categorical variables and their relationships. 
+Additionally, the relationship between Sleep and Sound Sleep is evaluated. There seems to be reason to suspect possible interaction between the two variables, potentially due to correlation. For this reason, in a future model we will consider excluding one of the two variables.
+
+```{r, message=FALSE}
+ggplot(ds_pre, aes(x=Sleep, y=SoundSleep, shape = Diabetic, color = Diabetic)) + geom_point() +
+  geom_smooth(method=lm, level=0.95) + 
+  labs(y = "Hours of Sound Sleep", title = "Scatter Plot of Sleep and Sound Sleep") +
+  # move the title text to the middle
+  theme(plot.title=element_text(hjust=0.5))
+```
+
+### 1.4.2 Categorical variables
+
+Next, we inspect the categorical variables and their relationships.
 
 ```{r}
 get_legend<-function(myggplot){
@@ -274,8 +294,17 @@ get_legend<-function(myggplot){
 }
 ```
 
-```{r, echo = False}
+```{r}
 # build plots
+bar_age <- ggplot(ds_pre, aes(x=reorder(Age, Age, function(x)-length(x)))) + 
+   geom_bar() +  labs(x='Age') + 
+  scale_x_discrete(labels=c("less than 40" = "< 40", "40-49" = "40-49",
+                              "50-59" = "40-49", "60 or older" = ">60"))
+bar_gender <- ggplot(ds, aes(x=reorder(Gender, Gender, function(x)-length(x)))) + 
+   geom_bar() +  labs(x='Gender')
+bar_familyd <- ggplot(ds, aes(x=reorder(Family_Diabetes, Family_Diabetes, function(x)-length(x)))) + 
+   geom_bar() +  labs(x='Family Diabetes')
+
 bar_smoking <- ggplot(data = ds_pre, aes(x = Smoking)) +
     geom_bar() + theme(legend.position = "none")
 bar_alc <- ggplot(data = ds_pre, aes(x = Alcohol)) +
@@ -315,123 +344,168 @@ bar_bplev <- ggplot(data = ds_pre, aes(x = BPLevel)) +
     geom_bar() + theme(legend.position="none")
 bar_highbp <- ggplot(data = ds_pre, aes(x = highBP)) +
   geom_bar() + theme(legend.position="none")
-# get legend
-#legend <- get_legend(bar_med)
-# delete legend from past plot
-#bar_med <- bar_med + theme(legend.position="none")
+
 # Plot first group 
-grid.arrange(bar_smoking, bar_alc, bar_med, bar_urin, bar_bplev, bar_highbp, ncol = 3, top=textGrob("Bar Plots of Categorical Variables"))
+grid.arrange(bar_age, bar_gender, bar_familyd, ncol = 3, top=textGrob("Barplots of First Group of Categorical Variables"))
 # plot second group
-grid.arrange(bar_junk, bar_act, bar_stress, ncol = 3, top=textGrob("Bar Plots of Categorical Variables"))
+grid.arrange(bar_smoking, bar_alc, bar_med, bar_urin, bar_bplev, bar_highbp, ncol = 3, top=textGrob("Bar Plots of Categorical Variables 2"))
+# plot third group
+grid.arrange(bar_junk, bar_act, bar_stress, ncol = 3, top=textGrob("Bar Plots of Categorical Variables 3"))
 
 ```
-Create proportional plots for relevant variables and their relationship with the outcome variable. 
-```{r}
-# build plots
-bar_junk <- ggplot(data = ds_pre, aes(x = JunkFood, fill = Diabetic)) +
-    geom_bar(position = 'fill') + theme(legend.position = "none") + labs(y = "Proportion")
-bar_act <- ggplot(data = ds_pre, aes(x = PhysicallyActive, fill = Diabetic)) +
-    geom_bar() + theme(legend.position = "none")
-bar_stress <- ggplot(data = ds_pre, aes(x = Stress, fill = Diabetic)) +
-  geom_bar()
-# get legend
-legend <- get_legend(bar_stress)
-# delete legend from past plot
-bar_stress <- bar_stress + theme(legend.position="none")
-grid.arrange(bar_junk, bar_act, bar_stress, legend, ncol = 3, top=textGrob("Bar plots of categorical Variables"))
 
-```
+Create proportional plots for relevant variables and their relationship with the outcome variable.
+
 ```{r}
-# build plots
-bar_urin <- ggplot(data = ds_pre, aes(x = UriationFreq, fill = Diabetic)) +
-    geom_bar() + theme(legend.position = "none")
-bar_bplev <- ggplot(data = ds_pre, aes(x = BPLevel, fill = Diabetic)) +
+# Variable Age
+# reorder levels
+ds_pre$Age <- factor(ds_pre$Age,levels = c("less than 40", "40-49", "50-59", "60 or older"))
+prop_age <- ggplot(data = ds_pre, aes(x = Age, fill = Diabetic)) +
+  geom_bar(position = 'fill') + 
+  theme(legend.position = 'none') +
+  labs(y = 'Proportion') + 
+  scale_x_discrete(labels=c("less than 40" = "< 40", "40-49" = "40-49",
+                              "50-59" = "40-49", "60 or older" = ">60"))
+# Gender
+prop_gender <- ggplot(data = ds_pre, aes(x = Gender, fill = Diabetic)) +
+  geom_bar(position = 'fill') + 
+  theme(legend.position = 'none') +
+  labs(y = 'Proportion')
+# Family Diabetes
+prop_famdiab <- ggplot(data = ds_pre, aes(x = Family_Diabetes, fill = Diabetic)) +
+  geom_bar(position = 'fill') + 
+  theme(legend.position = 'none') +
+  labs(y = 'Proportion')
+# Junk Food
+prop_junk <- ggplot(data = ds_pre, aes(x = JunkFood, fill = Diabetic)) +
+  geom_bar(position = 'fill') + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  labs(y = "Proportion") +
+  scale_x_discrete(labels=c("occasionally" = "occas.", "often" = "often",
+                              "very often" = "v. often", "always" = "alw."))
+# Alcohol
+prop_alc <- ggplot(data = ds_pre, aes(x = Alcohol, fill = Diabetic)) +
+  geom_bar(position = 'fill') + theme(legend.position = "none") + labs(y = "Proportion")
+# Physical Activity
+prop_act <- ggplot(data = ds_pre, aes(x = PhysicallyActive, fill = Diabetic)) +
+  geom_bar(position = 'fill') + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  labs(y = "Proportion") + 
+  scale_x_discrete(labels=c("none" = "none", "less than half an hr" = "<30 m",
+                              "more than half an hr" = ">30 m", "one hr or more" = ">1 hr"))
+# Regular Medicine
+prop_med <- ggplot(data = ds_pre, aes(x = RegularMedicine, fill = Diabetic)) +
+  geom_bar(position = 'fill') + theme(legend.position="none") + labs(y = "Proportion")
+# Smoking
+prop_smoke <- ggplot(data = ds_pre, aes(x = Smoking, fill = Diabetic)) +
+  geom_bar(position = 'fill') + theme(legend.position = "none") + labs(y = "Proportion")
+# Stress
+prop_stress <- ggplot(data = ds_pre, aes(x = Stress, fill = Diabetic)) +
+  geom_bar(position = 'fill') + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  labs(y = "Proportion") +
+  scale_x_discrete(labels=c("not at all" = "none.", "sometimes" = "somet.",
+                              "very often" = "v. often", "always" = "alw."))
+# Blood Pressure Level
+prop_bplev <- ggplot(data = ds_pre, aes(x = BPLevel, fill = Diabetic)) +
     geom_bar(position = 'fill') + theme(legend.position="none")
-bar_highbp <- ggplot(data = ds_pre, aes(x = highBP, fill = Diabetic)) +
-  geom_bar(position = 'fill') 
+# High Blood pressure
+prop_highbp <- ggplot(data = ds_pre, aes(x = highBP, fill = Diabetic)) +
+  geom_bar(position = 'fill') + theme(legend.position="none")
+# Urination Frequency
+prop_urin <- ggplot(data = ds_pre, aes(x = UriationFreq, fill = Diabetic)) +
+    geom_bar(position = 'fill')
 # get legend
-#legend <- get_legend(bar_highbp)
+legend <- get_legend(prop_urin)
 # delete legend from past plot
-#bar_highbp <- bar_highbp + theme(legend.position="none")
-grid.arrange(bar_urin, bar_bplev, bar_highbp, ncol = 3, top=textGrob("Bar plots of categorical Variables"))
+prop_urin <- prop_urin + theme(legend.position="none")
+
+# Create graph with multiple plots
+grid.arrange(prop_age, prop_gender, prop_famdiab, prop_med, legend, ncol = 3, top=textGrob("Bar plots of categorical Variables 1"))
+grid.arrange(prop_junk, prop_act, prop_stress, prop_smoke, prop_alc, ncol = 3, top=textGrob("Bar plots of categorical Variables 2"))
+grid.arrange(prop_bplev, prop_highbp, prop_urin, legend, ncol = 3, top=textGrob("Bar plots of categorical Variables 3"))
 ```
 
-GUYS, I am not sure if we need this deep dive into BMI?? 
+### 1.4.3 Further exploration
+
+Then, we take a look at some relationships between categorical and numerical variables
+
+```{r}
+gender_f <- ds_pre[ds_pre$Gender=='Female',]
+ggplot(gender_f, aes(x=Diabetic, y=Pregnancies, fill = Pdiabetes)) + 
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.5, width = 0.2, height = 0.2, color = "tomato") + 
+  labs(x = "Diabetes", y = "Pregnancies", title = "Diabetes by Gestational Diabetes and Number of Pregnancies")+
+  # move the title text to the middle
+  theme(plot.title=element_text(hjust=0.5))
+```
 
 ```{r}
 
-ggplot(ds_pre, aes(x=Alcohol, y=BMI, fill = Diabetic)) + 
-    geom_boxplot()
+box_alc.bmi <- ggplot(ds_pre, aes(x=Alcohol, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Alcohol Consumption & Diabetes")
+box_age.bmi <- ggplot(ds_pre, aes(x=Age, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Age & Diabetes") + 
+  scale_x_discrete(labels=c("less than 40" = "< 40", "40-49" = "40-49",
+                              "50-59" = "40-49", "60 or older" = ">60"))
+box_gender.bmi <- ggplot(ds_pre, aes(x=Gender, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Gender & Diabetes")
+box_smoke.bmi <- ggplot(ds_pre, aes(x=Smoking, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Smoking & Diabetes")
+box_fam.bmi <- ggplot(ds_pre, aes(x=Family_Diabetes, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Family Diabetes & Diabetes")
+box_highbp.bmi <- ggplot(ds_pre, aes(x=highBP, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by High BP & Diabetes")
+box_med.bmi <- ggplot(ds_pre, aes(x=RegularMedicine, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Regular Medicine and Diabetes")
+box_urin.bmi <- ggplot(ds_pre, aes(x=UriationFreq, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Urination Frequency and Diabetes")
+box_pdiab.bmi <- ggplot(gender_f, aes(x=Pdiabetes, y=BMI, fill = Diabetic)) + 
+    geom_boxplot() + labs(title = "by Gestational Diabetes and Diabetes")
 
-# BMI and Alcohol
-boxplot(BMI~Alcohol, data = ds_fin, main = "BMI of alcohol and non-alcohol subjects",ylab = "BMI",names = c("No Alcohol", "Alcohol"))
-
-# BMI and Gender
-boxplot(BMI~Gender_M, data = ds_fin, main = "BMI of Male and Female subjects",ylab = "BMI",names = c("Female", "Male"))
-
-# BMI and Smoking
-boxplot(~Smoking, data = ds_fin, main = "BMI of Smoker and Non-Smoker subjects",ylab = "BMI",names = c("Non-Smoker", "Smoker"))
-
-boxplot(BMI~Family_Diabetes, data = ds_fin, main = "BMI of Family_Diabetes subjects",ylab = "BMI",names = c("Have Not", "Have"))
-
-boxplot(BMI~highBP, data = ds_fin, main = "BMI of High Blood-Pressure subjects",ylab = "BMI",names = c("No", "Yes"))
-
-boxplot(BMI~RegularMedicine, data = ds_fin, main = "BMI of Regular Medicine Usage subjects",ylab = "BMI",names = c("No", "Yes"))
-
-boxplot(BMI~UriationFreq, data = ds_fin, main = "BMI of Uriation Frequency subjects",ylab = "BMI",names = c("No", "Yes"))
-
-boxplot(BMI~Pdiabetes, data = ds_fin, main = "BMI of P-Diabetes subjects",ylab = "BMI",names = c("No", "Yes"))
+grid.arrange(box_age.bmi, box_gender.bmi, box_fam.bmi, 
+             ncol = 3, top=textGrob("Box Plots of BMI and Categorical Variables"))
+grid.arrange(box_med.bmi, box_alc.bmi, box_smoke.bmi,
+             ncol = 3, top=textGrob("Box Plots of BMI and Categorical Variables"))
+grid.arrange(box_highbp.bmi, box_urin.bmi, box_pdiab.bmi, 
+             ncol = 3, top=textGrob("Box Plots of BMI and Categorical Variables"))
 
 ```
 
-I'm not so sure what it happening here - we need to concentrate on a subset of this and present it as one graph potentially. 
-```{r}
-gender_df <- data.frame(table(ds_fin$Diabetic,ds_fin$Gender_M))
-names(gender_df) <- c("Diabetic","Gender","Count")
+### 1.4.4 Correlation matrix
 
-ggplot(data=gender_df, aes(x=Diabetic, y=Count, fill=Gender, label = Count)) + geom_bar(stat="identity") + geom_text(size = 3, position = position_stack(vjust = 0.5))
-```
-
-
-Look at an overview of the correlation structure of all variables
-```{r}
-corr <- cor(ds_fin)
-#prepare to drop duplicates    
-corr[lower.tri(corr,diag=TRUE)] <- NA 
-#plot correlations visually
-corrplot(corr, is.corr=FALSE, tl.col="black", na.label=" ")
-```
-This correlation plot is in fact better, we also have access to the correlation coefficients. 
-```{r}
-library(ggcorrplot)
-model.matrix(~0+., data=ds_fin) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="upper", lab=TRUE, lab_size=2)
-```
+In order to assess which variables should be kept when modeling our data, we produce an overview of the correlation structure of all variables
 
 ```{r}
-w <- which(abs(corr)>0.5 & row(corr)<col(corr), arr.ind = TRUE)
-# reconstruct names from positions
-high_cor <- matrix(colnames(corr)[w],ncol=2)
-high_cor
+
+chisq.test(ds_pre$BPLevel, ds_pre$highBP)
+
 ```
-There are three variables highBP and BPnormal and BPhigh, which carry similar information - we will later check which one to exclude from the analysis (the correlation is above .6)
+We conclude that the two variables concerning blood pressure are not independent, thus potentially we would remove one of them from the analyses. 
 
-Additionally, Smoking & Alcohol, Sleep & SoundSleep, StressSometimes & StressOften are correlated above .5. 
-
-Potentially consider oversampling the minority class (Diabetic people) to deal with the balance problem.
-
+Additionally, we check the relationship between Smoking and Alcohol, which also result in the Chi-squared coefficient to be significant. 
 
 ```{r}
-list(names(ds_fin))
+chisq.test(ds_pre$Smoking, ds_pre$Alcohol)
 ```
+Next couple of variables to be tested are Regular Medicine and the Outcome variable Diabetic. In addition to the concern that the data set contains individuals who already have been diagnosed with Diabetes, we have the fact that the two variables are not independent. Therefore, we will consider excluding Regular Medicine from the models. 
 
-# 4. Modeling the data: LOGISTIC REGRESSION 
+```{r}
+chisq.test(ds_pre$RegularMedicine, ds_pre$Diabetic)
+```
+Furthermore, we investigate the relationship between Sleep and Sound Sleep, which potentially carry similar information as seen in the plot above. 
+```{r}
+chisq.test(ds_pre$Sleep, ds_pre$SoundSleep)
+```
+With a better idea of the structure of the variables, we move on to the modelling of the data. 
 
+# 2 Modeling
 
-Performing a train-test split for model validation
+First of all, we perform a train-test split of the dataset, in order to be able to carry out model validation later. 
+
 ```{r}
 # Split the data into training and test set
+
 set.seed(123)
 training.samples <- ds_fin$Diabetic %>% 
   createDataPartition(p = 0.8, list = FALSE)
@@ -439,382 +513,277 @@ train.data  <- ds_fin[training.samples, ]
 test.data <- ds_fin[-training.samples, ]
 ```
 
+## 2.1 Logistic Regression
 
-## 4.1. Full model 
+Following the rationale of the paper from which the dataset is taken, we wish to create a model which is able to satisfy two objectives:
+
+1)  Identify the lifestyle and family factors which increase / decrease the probability of developing Type 2 diabetes
+2)  Classify, as correctly as possible, diabetic and non-diabetic subjects
+
+We believe in this case it is important to choose an interpretable model, since this analysis is mainly aimed at preventing the insurgence of diabetes; while models such as KNN could reach better performance in the classification task, they would provide no indication of which factors "weigh" more in the development of this pathology.
+
+Thus, we choose to carry out a logistic regression on the binary variable "Diabetic". The full model is run below.
+
 ```{r}
-log_reg <- glm(Diabetic ~., data = ds_fin, family = binomial)
+# Full model 
+log_reg <- glm(Diabetic ~., data = train.data, family = binomial)
 summary(log_reg)
+
+#Saving the AIC for later use
+
+AIC_full = 432.18
+```
+In addition, we remove RegularMedicine from the list of predictors, due to concerns that it is actually a result from being diagnosed with Diabetes instead of a predictor of it. Simply observing the significance of the coefficients of the predictors, we now have a larger number of significant predictors and a larger AIC. This could indicate that havign Regular Medicien in the model acts as a suppressor variable. 
+```{r}
+# Full model 
+log_reg_nomed <- glm(Diabetic ~.-RegularMedicine, data = train.data, family = binomial)
+summary(log_reg_nomed)
+
+aic_nomed <- 514.91
 ```
 
+## 2.2 Model diagnostics
 
-## 4.2. Diagnostics 
+Now, we use the first full model for prediction in order to assess its classification accuracy.
+
+We are particularly interested in how well the model is able to identify diabetic subjects; since these results will likely be used for identifying good prevention practices rather than as a diagnostic tool (and, even then, the diagnosis would have to be confirmed through clinical test), we are not particularly worried about identifying a patient as sick when she is not - while we do care about identifying all truly sick patients as sick.
+
+Hence, we are interested in calculating the sensitivity and precision of our model, which are reported below.
 
 ```{r}
-log_prob <- predict(log_reg, type = 'response')
-logistic_pred <- rep(0, 905)
+#Prediction and confusion matrix for full model 
+dim(test.data)
+log_prob <- predict(log_reg, test.data, type = 'response')
+logistic_pred <- rep(0, dim(test.data)[1])
 logistic_pred[log_prob>0.5] <- 1
-table(logistic_pred, ds_fin$Diabetic)
+full_confusion <- confusionMatrix(data=as.factor(logistic_pred), reference = as.factor(test.data$Diabetic), positive = '1')
+full_confusion
 ```
-## 4.3. Variable selection 
+Compared to the full mode, the one without Regular Medicine has lower accuracy, however we still keep the variable excluded. 
+```{r}
+#Prediction and confusion matrix for model without Regular Medicine
+dim(test.data)
+log_prob_nomed <- predict(log_reg_nomed, test.data, type = 'response')
+logistic_pred <- rep(0, dim(test.data)[1])
+logistic_pred[log_prob_nomed>0.5] <- 1
+nomed_confusion <- confusionMatrix(data=as.factor(logistic_pred), reference = as.factor(test.data$Diabetic), positive = '1')
+nomed_confusion
+```
 
-We try dropping the variable "Sleep" since it is heavily correlated (0.54) with the variable "Sound Sleep" AND its P-value in the logistic regression is close to 1. 
+
+Moving forward with the model without RegularMeducine, We try to visualize the best threshold for the probability in logistic regression - it might not be the usual 0.5 threshold.
+
+```{r}
+full_prediction <- prediction(logistic_pred, test.data$Diabetic)
+
+roc_curve_full <- performance(full_prediction, measure="tpr", x.measure = "fpr" )
+
+auc <- performance(full_prediction, measure="auc")
+
+auc <- auc@y.values[[1]]
+
+auc <- as.character(round(auc, 3))
+
+plot(roc_curve_full, lwd = 2, main = "Full model ROC curve")
+
+full_auc = paste("AUC = ", auc)
+text(0.5, 0.5, full_auc)
+
+```
+
+From the graph, it is clear our model does not behave well with respect to the trade-off between sensitivity and specificity (in order to maximize sensitivity here, we would need to classify all subejcts as diabetic!). We proceed to look for the best model and will repeat this procedure every time a new promising model is found.
+
+## 2.3 Variable selection
+
+### 2.3.1 Diagnostics of first model: VIF analysis and multicollinearity check
+
+Now, we check multicollinearity by checking the VIF for all coefficients in the logistic regression.
+
+```{r}
+# Vector of VIF values 
+
+all_vif <- vif(log_reg_nomed)
+length(all_vif)
+
+# Create bar chart to display VIF values 
+
+barplot(all_vif, main = "VIF for all coefficients - FULL MODEL", horiz = FALSE, col = "orange", names.arg = c('Fam_d','h_bp','BMI','smoke','alc','sleep','Ssleep','preg','pdiab','ur','40-49','50-59','60ab','male','lowphy','midphy','highphy','junkof','junkvof','junkal','stress1','stress2','stress3','normbp','highbp'), ylim = c(0,30)) 
+
+# Add a line to highlight severe correlation when VIF > 5 
+
+abline(h = 5, lwd = 3, lty = 1)    
+
+```
+
+We can observe from the graph above that VIF is under the critical value of 5 for all coefficient except for the ones related to the variables "BPNormal" and "BPHigh". Next, due to the chi-squared test above and the inflated variance, we consider a model without one of the variables.
+
+First, we produce a model without "BPNormal". 
+
+```{r}
+# 1. Model without variables: "BPNormal"
+
+log_reg1 <- glm(Diabetic ~. -RegularMedicine-BPNormal, data = train.data, family = binomial)
+summary(log_reg1)
+
+#Saving the AIC for later use
+
+AIC_1 = 515.43
+```
+
+Secondly, we produce a model without "BPHigh".
 
 ```{r}
 
-log_reg_noSleep <- glm(Diabetic ~. -Sleep, data = ds_fin, family = binomial)
-summary(log_reg_noSleep)
+# 2. Model without variables: "BPHigh"
 
-## AIC drops to 536.77, CONFIRM dropping variable Sleep  
-```
-After removing variable Sleep, the variable SounSleep increases in significance. 
+log_reg2 <- glm(Diabetic ~. -RegularMedicine-BPHigh, data = train.data, family = binomial)
+summary(log_reg2)
 
-Now we produce a new correlation matrix with the new dataset 
+#Saving the AIC for later use
 
-```{r}
-
-model.matrix(~0+., data=ds_fin[,-6]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
+AIC_2 = 517.78
 ```
 
-Now we can observe that the variables Smoking and Alcohol are heavily correlated (0.52) AND Alcohol is not significant 
-in the regression with p-value =0.27. Hence, we try dropping the variable Alcohol. 
-However, the variable Smoking becomes less significant once Alcohol is dropped, potentially due to variance suppresion.
-```{r}
-log_reg_noSleep_noAlcohol <- glm(Diabetic ~. -Sleep-Alcohol, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol)
+Below, we confirm both through AIC analysis and through the VIF plot for all coefficients that, indeed, the variable BPNormal suffered from multicollinearity and shall be removed from the model. Once removed, all coefficients show VIFs under the critical value of 5.
 
-## AIC drops to 536.01: CONFIRM dropping variable Alcohol 
+```{r}
+#Checking which variable dropped produced a lowering of the AIC 
+
+AIC_full > AIC_1 #TRUE
+
+AIC_full > AIC_2 #FALSE 
+
+# Creating a new VIF plot for log_reg1 (without BPNormal) 
+
+all_vif1 <- vif(log_reg1)
+length(all_vif1)
+
+# Create bar chart to display VIF values 
+
+barplot(all_vif1, main = "VIF for all coeficients - MODEL WITHOUT BPNormal", horiz = FALSE, col = "orange", names.arg = c('Fam_d','h_bp','BMI','smoke','alc','sleep','Ssleep','preg','pdiab','ur','40-49','50-59','60ab','male','lowphy','midphy','highphy','junkof','junkvof','junkal','stress1','stress2','stress3','highbp'), ylim = c(0,30)) 
+
+# Add a line to highlight severe correlation when VIF > 5 
+
+abline(h = 5, lwd = 3, lty = 1)    
+
 ```
 
-```{r}
+Now, we observe this new model's performance through VIF analysis, sensitivity and precision measures.
 
-model.matrix(~0+., data=ds_fin[,-c(5,6)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
+```{r}
+#Prediction and confusion matrix for model identified through VIF analysis
+
+log_prob_VIFmod  <- predict(log_reg1, test.data, type = 'response')
+logistic_pred_VIFmod  <- rep(0, dim(test.data)[1])
+logistic_pred_VIFmod [log_prob_VIFmod>0.5] <- 1
+vif_confusion <- confusionMatrix(data=as.factor(logistic_pred_VIFmod), reference = as.factor(test.data$Diabetic), positive = '1')
+vif_confusion
 ```
 
-Now, we can observe highBP remains non-significant in all models tried so far (p-value=0.24) AND it is heavily correlated to 
-BPNormal (-0.64). We attempt two regressions, one dropping highBP and the other one dropping BPNormal in order to understand 
-which variable to keep. 
+Now, we check for the best treshold of P in the case of the new model without BPNormal (log_reg1).
 
 ```{r}
-log_reg_noSleep_noAlcohol_noBPNormal <- glm(Diabetic ~. -Sleep-Alcohol-BPNormal, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_noBPNormal)
-```
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP <- glm(Diabetic ~. -Sleep-Alcohol-highBP, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP)
+VIFmod_prediction <- prediction(logistic_pred_VIFmod, test.data$Diabetic)
 
-## AIC drops to 535.29: CONFIRM dropping highBP, keep BPNormal bc AIC higher for previous regression
-```
-```{r}
+roc_curve_VIFmod <- performance(VIFmod_prediction, measure="tpr", x.measure = "fpr" )
 
-model.matrix(~0+., data=ds_fin[,-c(2,5,6)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-```
-Now we observe that variable PhysMid is heavily correlated with variable PhysLow AND variable PhysMid is not significant (p-value=0.22). Hence, we try dropping this variable. 
+auc <- performance(VIFmod_prediction, measure="auc")
 
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid)
+auc <- auc@y.values[[1]]
 
-## AIC drops to 534.78: CONFIRM dropping PhysMid
-```
-```{r}
+auc <- as.character(round(auc, 3))
 
-model.matrix(~0+., data=ds_fin[,-c(2,5,6,18)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
+plot(roc_curve_VIFmod, main="ROC curve - Model modified through VIF analysis", lwd=2)
 
-```
-Now, since the not significant variables StressOften (p-value=0.47) and StressSometimes(p-value=0.38) are heavily correlated (-0.55), we run two models: one without one, and one without the other, to figure out which one should be dropped. 
+full_auc = paste("AUC = ", auc)
 
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften)
-
-##AIC drops to 533.31: CONFIRM dropping the variable StressOften since the other AIC is lower 
-```
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressSometimes <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressSometimes, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressSometimes)
-
-model.matrix(~0+., data=ds_fin[,-c(2,5,6,18,24)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-```
-Now, we observe the non-significant variables StressAlways (p-value=0.211927) and StressSometimes (p-value=0.612708) are heavily correlated (-0.39).we run two models: one without one, and one without the other, to figure out which one should be dropped.
-
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Always <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressAlways, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Always)
-```
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes)
-
-##AIC drops to 531.57: CONFIRM dropping variable StressSometimes
-```
-```{r}
-
-model.matrix(~0+., data=ds_fin[,-c(2,5,6,18,23,24)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-```
-Moreover, the variable Pregancies (i.e. n. of pregnancies) is misleading our model since it is heavily correlated to the Male variable(-0.5) for obvious reasons. Since papers on the subejct (FIND A SPECIFIC ONE) point to gestational diabetes as an important factor in order to develop diabetes type 2, rather than pregnancy per se, we try dropping this variable. 
-
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg)
-
-##AIC drops to 531.02: CONFIRM dropping variable Pregancies 
-```
-
-```{r}
-model.matrix(~0+., data=ds_fin[,-c(2,5,6,9,18,23,24)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-```
-Now, we can observe variables JunkAlways and StressAlways are heavily correlated (0.28) AND the variable JunkAlways is not significant (p-value=0.63), while STressAlways is somewhat significant. We try dropping both and observe the AIC. 
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-JunkAlways, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways)
-
-## AIC drops to 529.25: CONFIRM dropping variable JunkAlways 
-```
-
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-StressAlways, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways) 
-##NO, AIC gets higher 
-
-```
-```{r}
-model.matrix(~0+., data=ds_fin[,-c(2,5,6,9,18,22,23,24)]) %>% 
-  cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-```
-Now, we see that variable BPLow is not significant AND is heavily correlated with BPNormal (-0.29). We try dropping both and observe the AIC.
-
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPlow <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-StressAlways-BPLow, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPlow) ##NO, AIC gets higher 
-
-```
-```{r}
-log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPNormal <- glm(Diabetic ~. -Sleep-Alcohol-highBP-PhysMid-StressOften-StressSometimes-Pregnancies-StressAlways-BPNormal, data = ds_fin, family = binomial)
-summary(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noStressAlways_noBPNormal) ##NO, AIC gets higher
-```
-In both cases, AIC gets higher so we DO NOT CONFIRM dropping these variables. 
-
-## 4.4. NB: 
-Since AIC works well asymptotically (i.e. when we have many more observations than variables) and our models our quite large, I now calculate the BIC (Bayesian Information Criterion) for all models so far to make sure we are dropping variables in a sensible way. 
-
-```{r}
-#install.packages('flexmix')
-library(flexmix)
-
-bic_1 <- BIC(log_reg)
-bic_2 <- BIC(log_reg_noSleep)
-bic_3 <- BIC(log_reg_noSleep_noAlcohol)
-bic_4 <- BIC(log_reg_noSleep_noAlcohol_nohighBP)
-bic_5 <- BIC(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid)
-bic_6 <- BIC(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften)
-bic_7 <- BIC(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes)
-bic_8 <- BIC(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg)
-bic_9 <- BIC(log_reg_noSleep_noAlcohol_nohighBP_noPhysMid_noStressOften_Sometimes_noPreg_noJunkAlways)
-
-isTRUE((bic_1 > bic_2)&(bic_2 > bic_3)&(bic_3 > bic_4)&(bic_4 > bic_5)&(bic_5 > bic_6)&(bic_6 > bic_7)&(bic_7 > bic_8)&(bic_8>bic_9)) #YES 
-```
-
-```{r}
-length(colnames(ds_fin[,-c(2,5,6,9,18,22,23,24)])) ##At this point, we have 19 variables 
-```
-
-## 4.5. LASSO logistic regression
-
-```{r}
-y <- ds_fin$Diabetic
-x <- data.matrix(ds_fin[,-12])
-
-#perform k-fold cross-validation to find optimal lambda value
-cv_model <- cv.glmnet(x, y, alpha = 1, family="binomial")
-
-#find optimal lambda value that minimizes test MSE
-best_lambda <- cv_model$lambda.min
-best_lambda #0.002622828
-
-#produce plot of test MSE by lambda value (optional)
-plot(cv_model) 
-
-lasso_reg <- glmnet(x, y, alpha = 1, lambda = best_lambda, family = "binomial")
-coef(lasso_reg)
-
-########## LASSO drops very different coefficients than the one we would drop using stepwise selection :(( 
-#An idea could be to research what simple logistic and LASSO are used for (i.e. are they used for prediction/classification
-# or rather to find out which variables "weigh" more in the insurgence of, say, a sickness?) in order to figure out which one is best. 
+text(0.5, 0.5, full_auc)
 
 
 ```
 
+### 2.3.2 Stepwise logistic regression
 
-## 4.6. Best Subset Selection
-```{r}
-library(leaps)
-# response variable followed by a dot to indicate I want
-# all predictor vars
-regfit.full <- regsubsets(Diabetic~., data=ds_fin, nvmax=26)
-summary(regfit.full)
-reg.summary <- summary(regfit.full)
-```
+Even after observing the VIFs and dropping BPNormal, we still have 25 explanatory variables in our model, many of which are not significant. In order to explore the possibility of dropping other variables, we perform an automatic stepwise selection procedure.
 
 ```{r}
-names(reg.summary)
-reg.summary$rsq
-```
+#Stepwise logistic
 
-```{r}
-# Plotting RSS, adjusted  R2,  Cp, and BIC 
-# for all of the models at once will help us 
-# decide which model to select. 
-
-par(mfrow=c(2,2))
-
-# residual sum of squares
-plot(reg.summary$rss,xlab="Number of Variables",ylab="RSS",type="l")
-
-# adjusted-R^2 with its largest value
-plot(reg.summary$adjr2,xlab="Number of Variables",ylab="Adjusted Rsq",type="l")
-which.max(reg.summary$adjr2) # take a vec and itendifies the max value of the vector and returns the index
-points(11,reg.summary$adjr2[11], col="red",cex=2,pch=20)
-
-# Mallow's Cp with its smallest value
-plot(reg.summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
-which.min(reg.summary$cp)
-points(10,reg.summary$cp[10],col="red",cex=2,pch=20)
-
-# BIC with its smallest value
-plot(reg.summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
-which.min(reg.summary$bic) # take a vec and itendifies the min value of the vector and returns the index
-points(6,reg.summary$bic[6],col="red",cex=2,pch=20)
-
-par(mfrow=c(1,1))
-```
-
-```{r}
-#par(mfrow=c(2,2))
-plot(regfit.full,scale="r2")
-plot(regfit.full,scale="adjr2")
-plot(regfit.full,scale="Cp")
-
-plot(regfit.full,scale="bic")
-coef(regfit.full,6)
-#par(mfrow=c(1,1))
-```
-
-```{r}
-coef(regfit.full, 10)
-
-best.bic <- glm(Diabetic~Family_Diabetes+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+PhysLow + PhysMid + StressSometimes+ BPHigh, data=ds_fin, family = binomial)
-summary(best.bic)
-```
-The results from the best variable subset selection are in accordance with the results from the selection done by hand and verified by checking resulting correlations and up-or-down moves of the AIC. This would mean excluding the variables Smoking, Alcohol, Pregnancies, JunkAlways, StressOften, Sleep, HighBP, BPLow
-
-## 4.7. Stepwise logistic
-```{r}
-model <- glm(Diabetic ~., data = train.data, family = binomial)
+model <- glm(Diabetic ~.-RegularMedicine, data = train.data, family = binomial)
 summary(model)
 step.model <- model %>% stepAIC(trace = FALSE)
 summary(step.model)
 ```
 
+Now, we save the model with best AIC.
+
 ```{r}
-best.aic <- glm(Diabetic~Family_Diabetes+Smoking+SoundSleep+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+Gender_M+PhysLow + PhysHigh + StressAlways+ BPHigh, data=train.data, family = binomial)
+#Saving the model with best AIC 
+
+best.aic <- step.model
 summary(best.aic)
-```
-Compare the models
-```{r}
-# Make predictions
-probabilities <- model %>% predict(test.data, type = "response")
-predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
-# Prediction accuracy
-observed.classes <- test.data$Diabetic
-mean(predicted.classes == observed.classes)
+
+#Saving the AIC 
+best_AIC = 426.4
 ```
 
-```{r}
-# Make predictions
-probabilities <- predict(best.aic, test.data, type = "response")
-predicted.classes <- ifelse(probabilities > 0.5, 1,0)
-# Prediction accuracy
-observed.classes <- test.data$Diabetic
-mean(predicted.classes == observed.classes)
-```
-
-
-## 4.8. Stepwise with SMOTE
-Over-sample the minority group - SMOTE
-```{r}
-ds_smoted <- SMOTE(ds_fin[,-12], target = ds_fin$Diabetic, K = 4, dup_size = 1.5)
-ds_oversampled = ds_smoted$data
-table(ds_oversampled$class)
-ds_oversampled$class <- as.factor(ds_oversampled$class)
-```
-
-Performing a train-test split for model validation
-```{r}
-# Split the data into training and test set
-set.seed(123)
-training.samples_over <- ds_oversampled$class %>% 
-  createDataPartition(p = 0.8, list = FALSE)
-train.data_over  <- ds_oversampled[training.samples_over, ]
-test.data_over <- ds_oversampled[-training.samples_over, ]
-```
-
+Finally, we produce the confusion matrix and sensitivity + precision measure for the best AIC model in order to evaluate its performance. 
 
 ```{r}
-model_over <- glm(class ~., data = train.data_over, family = binomial)
-summary(model_over)
-step.model_over <- model_over %>% stepAIC(trace = FALSE)
-summary(step.model_over)
+
+#Prediction and confusion matrix for best AIC model 
+
+log_prob_bestAIC <- predict(best.aic, test.data, type = 'response')
+logistic_pred_bestAIC <- rep(0, dim(test.data)[1])
+logistic_pred_bestAIC[log_prob_bestAIC>0.5] <- 1
+aic_confusion <- confusionMatrix(data=as.factor(logistic_pred_bestAIC), reference = as.factor(test.data$Diabetic), positive = '1')
+aic_confusion
+
 ```
 
 ```{r}
-best.aic <- glm(class~Family_Diabetes+Smoking+SoundSleep+RegularMedicine+Pdiabetes+Age40_49+Age50_59+Age_60+Gender_M+PhysLow + PhysHigh + StressAlways+ BPHigh, data=train.data_over, family = binomial)
-summary(best.aic)
+best_aic_prediction <- prediction(logistic_pred_bestAIC, test.data$Diabetic)
+
+roc_curve_best_Aic <- performance(best_aic_prediction, measure="tpr", x.measure = "fpr" )
+
+auc <- performance(best_aic_prediction, measure="auc")
+
+auc <- auc@y.values[[1]]
+
+auc <- round(auc, 3)
+
+plot(roc_curve_best_Aic, main="ROC curve - Model with best AIC", lwd=2)
+
+full_auc = paste("AUC = ", auc)
+
+text(0.5, 0.5, full_auc)
+
 ```
 
-```{r}
-# Make predictions
-probabilities <- model %>% predict(test.data_over, type = "response")
-predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
-# Prediction accuracy
-observed.classes <- test.data_over$class
-mean(predicted.classes == observed.classes)
-```
+### 2.3.3 Comparison of models
 
-
+In order to check which is our best model, we visually contrast both new models with the full model predictions in order to select the model with best performance.
 
 ```{r}
-# Make predictions
-probabilities <- predict(best.aic, test.data_over, type = "response")
-predicted.classes <- ifelse(probabilities > 0.5, 1,0)
-# Prediction accuracy
-observed.classes <- test.data_over$class
-mean(predicted.classes == observed.classes)
-```
-The SMOTEd data set actually leads to worse prediction accuracy compared to the unbalanced data set. 
-# 5. Interpretation of the data
-How do we present our analysis: basically answer the questions we set in
-the beginning using our results - technical details are necessary but
-make them accessible - tell a story. 
 
-Compare probability between age groups for diabetes
+plot(roc_curve_full, col='orange', main='ROC curves for all models', lty=1, lwd=2)
 
-```{r}
-aov_age <- aov(ds_fin$Diabetic~ds_pre$Age)
-tukey_age <- TukeyHSD(aov_age)
-plot(tukey_age)
+plot(roc_curve_VIFmod, add=TRUE, col='green', lty=3, lwd=2)
+
+plot(roc_curve_best_Aic, add=TRUE, col='blue', lty=2, lwd=2)
+
+auc <- performance(best_aic_prediction, measure="auc")
+
+auc <- auc@y.values[[1]]
+
+auc <- round(auc, 3)
+
+bestAIC_auc = paste("best model AUC = ", auc)
+
+text(0.15, 0.3, full_auc, col='blue')
+
+
+legend(0.5, 0.5, legend=c("Full model", "VIF modified model", "Best AIC model"),
+       col=c("orange", "green", "blue"), lty=c(1,3,2))
+
 ```
